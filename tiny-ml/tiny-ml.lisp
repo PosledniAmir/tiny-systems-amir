@@ -33,6 +33,22 @@
                                 :expression expression
                                 :context context))
 
+(defclass tuple-value ()
+  ((left
+    :reader get-left
+    :initform nil
+    :initarg :left
+    :documentation "Left value.")
+   (right
+    :reader get-right
+    :initform nil
+    :initarg :right
+    :documentation "Right value.")))
+
+(defun make-tuple-value (left right)
+  (make-instance 'tuple-value :left left
+                              :right right))
+
 (defclass constant-expression ()
   ((value
     :reader get-value
@@ -172,6 +188,38 @@
   (make-instance 'let-expression :variable variable
                                  :value value
                                  :expression expression))
+
+(defclass tuple-expression ()
+  ((left
+    :reader get-left
+    :initform nil
+    :initarg :left
+    :documentation "Left expression.")
+   (right
+    :reader get-right
+    :initform nil
+    :initarg :right
+    :documentation "Right expression.")))
+
+(defun make-tuple-expression (left right)
+  (make-instance 'tuple-expression :left left
+                                   :right right))
+
+(defclass get-tuple-expression ()
+  ((left?
+    :reader get-left?
+    :initform t
+    :initarg :left?
+    :documentation "Whether to extract left item.")
+   (tuple
+    :reader get-tuple
+    :initform nil
+    :initarg :tuple
+    :documentation "Tuple expression to extract from")))
+
+(defun make-get-tuple-expression (left? tuple)
+  (make-instance 'get-tuple-expression :left? left?
+                                   :tuple tuple))
 
 (defclass variable-context ()
   ((context
@@ -332,6 +380,15 @@
 (defmethod evaluate (context (exp integer-value))
   exp)
 
+(defmethod evaluate (context (exp get-tuple-expression))
+  (cond
+    ((get-left? exp) (evaluate context (get-left (get-tuple exp))))
+    (t (evaluate context (get-right (get-tuple exp))))))
+
+(defmethod evaluate (context (exp tuple-expression))
+  (make-tuple-value (evaluate context (get-left exp))
+                    (evaluate context (get-right exp))))
+
 (format t "test00: ~a~%"
         (get-value
          (evaluate (empty-context)
@@ -478,3 +535,37 @@
                                 (make-application-expression
                                  (make-variable-expression "f")
                                  (make-constant-expression 1)))))))
+
+(format t "test11: ~a~%"
+        (get-value
+         (evaluate
+          (empty-context)
+          (make-get-tuple-expression
+           t
+           (make-tuple-expression
+            (make-binary-expression
+             "*"
+             (make-constant-expression 2)
+             (make-constant-expression 21))
+            (make-constant-expression 123))))))
+
+(format t "test12: ~a~%"
+        (get-value
+         (evaluate
+          (empty-context)
+          (make-get-tuple-expression
+           nil
+           (make-tuple-expression
+            (make-binary-expression
+             "*"
+             (make-constant-expression 2)
+             (make-constant-expression 21))
+            (make-constant-expression 123))))))
+
+;; (format t "test13: ~a~%"
+;;         (get-value
+;;          (evaluate
+;;           (empty-context)
+;;           (make-get-tuple-expression
+;;            t
+;;            (make-constant-expression 42)))))
