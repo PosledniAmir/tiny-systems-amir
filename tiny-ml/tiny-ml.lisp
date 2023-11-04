@@ -148,7 +148,30 @@
 
 (defun make-application-expression (function value)
   (make-instance 'application-expression :function function
-                 :value value))
+                                         :value value))
+
+(defclass let-expression ()
+  ((variable
+    :reader get-variable
+    :initform ""
+    :initarg :variable
+    :type string
+    :documentation "Variable.")
+   (value
+    :reader get-value
+    :initform nil
+    :initarg :value
+    :documentation "Value argument.")
+   (expression
+    :reader get-expression
+    :initform nil
+    :initarg :expression
+    :documentation "Expression argument.")))
+
+(defun make-let-expression (variable value expression)
+  (make-instance 'let-expression :variable variable
+                                 :value value
+                                 :expression expression))
 
 (defclass variable-context ()
   ((context
@@ -270,7 +293,19 @@
   (:documentation "Applies input to fn"))
 
 (defmethod apply-input (context (fn lambda-expression) input)
-  (evaluate (put (get-variable fn) input (copy context))
+  (evaluate (put (get-variable fn)
+                 input
+                 (copy context))
+            fn))
+
+(defmethod apply-input (context (fn variable-expression) input)
+  (let ((found (evaluate context fn)))
+    (apply-input context found input)))
+
+(defmethod apply-input (context (fn closure-value) input)
+  (evaluate (put (get-name (get-variable fn))
+                 input
+                 (get-context fn))
             fn))
 
 (defmethod apply-input (context fn input)
@@ -286,6 +321,16 @@
 (defmethod evaluate (context (exp closure-value))
   (evaluate (get-context exp)
             (get-expression exp)))
+
+(defmethod evaluate (context (exp let-expression))
+  (evaluate context
+            (make-application-expression
+             (make-lambda-expression (get-variable exp)
+                                     (get-expression exp))
+             (get-value exp))))
+
+(defmethod evaluate (context (exp integer-value))
+  exp)
 
 (format t "test00: ~a~%"
         (get-value
@@ -399,3 +444,37 @@
 ;;              "*"
 ;;              (make-variable-expression "x")
 ;;              (make-constant-expression 2)))))))
+
+(format t "test09: ~a~%"
+        (get-value
+         (evaluate
+          (empty-context)
+          (make-let-expression "x"
+                               (make-constant-expression 2)
+                               (make-binary-expression
+                                "+"
+                                (make-variable-expression "x")
+                                (make-binary-expression
+                                 "*"
+                                 (make-variable-expression "x")
+                                 (make-constant-expression 20)))))))
+
+(format t "test10: ~a~%"
+        (get-value
+         (evaluate
+          (empty-context)
+          (make-let-expression "f"
+                               (make-lambda-expression
+                                "x"
+                                (make-binary-expression
+                                 "*"
+                                 (make-variable-expression "x")
+                                 (make-constant-expression 2)))
+                               (make-binary-expression
+                                "+"
+                                (make-application-expression
+                                 (make-variable-expression "f")
+                                 (make-constant-expression 20))
+                                (make-application-expression
+                                 (make-variable-expression "f")
+                                 (make-constant-expression 1)))))))
