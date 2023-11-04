@@ -1,232 +1,122 @@
-(defclass integer-value ()
-  ((value
-    :reader get-value
-    :initform 0
-    :initarg :value
-    :type integer
-    :documentation "Integer value")))
+(defmacro defunclass (name slots &optional docstring)
+  `(defclass ,name ()
+     ,(mapcar 
+       (lambda (slot)
+         `(,(first slot)
+           :reader ,(intern (format nil "GET-~A" (first slot)))
+           :initarg ,(intern (format nil "~A" (first slot)) :keyword)
+           :initform ,(second slot)))
+       slots)
+     ,docstring))
+
+(defunclass integer-value ((value 0))
+  (:documentation "Integer value."))
 
 (defun make-integer-value (value)
   (make-instance 'integer-value :value value))
 
-(defclass closure-value ()
-  ((variable
-    :reader get-variable
-    :initform nil
-    :initarg :variable
-    :type variable-expression
-    :documentation "Name of the closure")
-   (expression
-    :reader get-expression
-    :initform nil
-    :initarg :expression
-    :type lambda-expression
-    :documentation "Expression of the closure")
-   (context
-    :reader get-context
-    :initform (empty-context)
-    :initarg :context
-    :documentation "Context of the closure")))
+(defunclass closure-value ((variable nil)
+                           (expression nil)
+                           (context (empty-context)))
+  (:documentation "Closure value."))
 
 (defun make-closure-value (variable expression context)
   (make-instance 'closure-value :variable variable
                                 :expression expression
                                 :context context))
 
-(defclass tuple-value ()
-  ((left
-    :reader get-left
-    :initform nil
-    :initarg :left
-    :documentation "Left value.")
-   (right
-    :reader get-right
-    :initform nil
-    :initarg :right
-    :documentation "Right value.")))
+(defunclass tuple-value ((left nil)
+                         (right nil))
+  (:documentation "Tuple value."))
 
 (defun make-tuple-value (left right)
   (make-instance 'tuple-value :left left
                               :right right))
 
-(defclass constant-expression ()
-  ((value
-    :reader get-value
-    :initform 0
-    :initarg :value
-    :type integer
-    :documentation "Integer value")))
+(defunclass constant-expression ((value 0))
+  (:documentation "Constant expression."))
 
 (defun make-constant-expression (value)
   (make-instance 'constant-expression :value value))
 
-(defclass binary-expression ()
-  ((function
-    :reader get-function
-    :initform ""
-    :initarg :function
-    :type string
-    :documentation "Function name")
-   (left
-    :reader get-left
-    :initform nil
-    :initarg :left
-    :documentation "Left expression")
-   (right
-    :reader get-right
-    :initform nil
-    :initarg :right
-    :documentation "Right expression")))
+(defunclass binary-expression ((function "")
+                               (left nil)
+                               (right nil))
+  (:documentation "Binary expression."))
 
 (defun make-binary-expression (function left right)
   (make-instance 'binary-expression :function function
                                     :left left
                                     :right right))
 
-(defclass variable-expression ()
-  ((name
-    :reader get-name
-    :initform ""
-    :initarg :name
-    :type string
-    :documentation "Variable name")))
+(defunclass variable-expression ((name ""))
+  (:documentation "Variable expression."))
 
 (defun make-variable-expression (name)
   (make-instance 'variable-expression :name name))
 
-(defclass unary-expression ()
-  ((function
-    :reader get-function
-    :initform ""
-    :initarg :function
-    :type string
-    :documentation "Function name")
-   (right
-    :reader get-right
-    :initform nil
-    :initarg :right
-    :documentation "Right expression")))
+(defunclass unary-expression ((function "")
+                              (right nil))
+  (:documentation "Unary expression."))
 
 (defun make-unary-expression (function right)
   (make-instance 'unary-expression :function function
-                 :right right))
+                                   :right right))
 
-(defclass if-expression ()
-  ((condition
-    :reader get-condition
-    :initform nil
-    :initarg :condition
-    :documentation "Condition expression")
-   (then
-    :reader get-then
-    :initform nil
-    :initarg :then
-    :documentation "Then expression")
-   (else
-    :reader get-else
-    :initform nil
-    :initarg :else
-    :documentation "Else expression")))
+(defunclass if-expression ((condition nil)
+                           (then nil)
+                           (else nil))
+  (:documentation "If expression."))
 
 (defun make-if-expression (condition then else)
   (make-instance 'if-expression :condition condition
                                 :then then
                                 :else else))
 
-(defclass lambda-expression ()
-  ((variable
-    :reader get-variable
-    :initform ""
-    :initarg :variable
-    :type string
-    :documentation "Lambda variable.")
-   (expression
-    :reader get-expression
-    :initform nil
-    :initarg :expression
-    :documentation "Lambda expression.")))
+(defunclass lambda-expression ((variable "")
+                               (expression nil))
+  (:documentation "Lambda expression."))
 
 (defun make-lambda-expression (variable expression)
   (make-instance 'lambda-expression :variable variable
                                     :expression expression))
 
-(defclass application-expression ()
-  ((function
-    :reader get-function
-    :initform nil
-    :initarg :function
-    :documentation "Function expression.")
-   (value
-    :reader get-value
-    :initform nil
-    :initarg :value
-    :documentation "Function argument.")))
+(defunclass application-expression ((function nil)
+                                    (value nil))
+  (:documentation "Application expression."))
 
 (defun make-application-expression (function value)
   (make-instance 'application-expression :function function
                                          :value value))
 
-(defclass let-expression ()
-  ((variable
-    :reader get-variable
-    :initform ""
-    :initarg :variable
-    :type string
-    :documentation "Variable.")
-   (value
-    :reader get-value
-    :initform nil
-    :initarg :value
-    :documentation "Value argument.")
-   (expression
-    :reader get-expression
-    :initform nil
-    :initarg :expression
-    :documentation "Expression argument.")))
+(defunclass let-expression ((variable "")
+                            (value nil)
+                            (expression nil))
+  (:documentation "Let expression."))
 
 (defun make-let-expression (variable value expression)
   (make-instance 'let-expression :variable variable
                                  :value value
                                  :expression expression))
 
-(defclass tuple-expression ()
-  ((left
-    :reader get-left
-    :initform nil
-    :initarg :left
-    :documentation "Left expression.")
-   (right
-    :reader get-right
-    :initform nil
-    :initarg :right
-    :documentation "Right expression.")))
+(defunclass tuple-expression ((left nil)
+                              (right nil))
+  (:documentation "Tuple expression."))
 
 (defun make-tuple-expression (left right)
   (make-instance 'tuple-expression :left left
                                    :right right))
 
-(defclass get-tuple-expression ()
-  ((left?
-    :reader get-left?
-    :initform t
-    :initarg :left?
-    :documentation "Whether to extract left item.")
-   (tuple
-    :reader get-tuple
-    :initform nil
-    :initarg :tuple
-    :documentation "Tuple expression to extract from")))
+(defunclass get-tuple-expression ((left? t)
+                                  (tuple nil))
+  (:documentation "Extract from a tuple expression."))
 
 (defun make-get-tuple-expression (left? tuple)
   (make-instance 'get-tuple-expression :left? left?
-                                   :tuple tuple))
+                                       :tuple tuple))
 
-(defclass variable-context ()
-  ((context
-    :reader get-context
-    :initform (make-hash-table)
-    :initarg :context
-    :documentation "Context hash table")))
+(defunclass variable-context ((context (make-hash-table)))
+  (:documentation "Context hash table."))
 
 (defun empty-context ()
   (make-instance 'variable-context))
