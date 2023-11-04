@@ -9,6 +9,30 @@
 (defun make-integer-value (value)
   (make-instance 'integer-value :value value))
 
+(defclass closure-value ()
+  ((variable
+    :reader get-variable
+    :initform nil
+    :initarg :variable
+    :type variable-expression
+    :documentation "Name of the closure")
+   (expression
+    :reader get-expression
+    :initform nil
+    :initarg :expression
+    :type lambda-expression
+    :documentation "Expression of the closure")
+   (context
+    :reader get-context
+    :initform (empty-context)
+    :initarg :context
+    :documentation "Context of the closure")))
+
+(defun make-closure-value (variable expression context)
+  (make-instance 'closure-value :variable variable
+                                :expression expression
+                                :context context))
+
 (defclass constant-expression ()
   ((value
     :reader get-value
@@ -48,6 +72,7 @@
     :reader get-name
     :initform ""
     :initarg :name
+    :type string
     :documentation "Variable name")))
 
 (defun make-variable-expression (name)
@@ -86,6 +111,44 @@
     :initform nil
     :initarg :else
     :documentation "Else expression")))
+
+(defun make-if-expression (condition then else)
+  (make-instance 'if-expression :condition condition
+                                :then then
+                                :else else))
+
+(defclass lambda-expression ()
+  ((variable
+    :reader get-variable
+    :initform ""
+    :initarg :variable
+    :type string
+    :documentation "Lambda variable.")
+   (expression
+    :reader get-expression
+    :initform nil
+    :initarg :expression
+    :documentation "Lambda expression.")))
+
+(defun make-lambda-expression (variable expression)
+  (make-instance 'lambda-expression :variable variable
+                                    :expression expression))
+
+(defclass application-expression ()
+  ((function
+    :reader get-function
+    :initform nil
+    :initarg :function
+    :documentation "Function expression.")
+   (value
+    :reader get-value
+    :initform nil
+    :initarg :value
+    :documentation "Function argument.")))
+
+(defun make-application-expression (function value)
+  (make-instance 'application-expression :function function
+                 :value value))
 
 (defclass variable-context ()
   ((context
@@ -126,11 +189,22 @@
 (defmethod obtain (key (collection variable-context))
   (gethash key (get-context collection)))
 
+(defgeneric copy (collection)
+  (:documentation "Copies the collection"))
+
+(defmethod copy ((collection variable-context))
+  (apply #'make-variable-context
+         (maphash (lambda (key val) (list key val))
+                  (get-context collection))))
+
 (defgeneric plus (left right)
   (:documentation "Plus function."))
 
 (defmethod plus ((left integer-value) (right integer-value))
   (make-integer-value (+ (get-value left) (get-value right))))
+
+(defmethod plus ((left integer-value) (right closure-value))
+  (error "Cannot apply + to ~a and ~a" left right))
 
 (defgeneric minus (left right)
   (:documentation "Minus function."))
@@ -187,6 +261,32 @@
     ((true? (evaluate context  condition)) (evaluate context then))
     (t (evaluate context else)))))
 
+(defmethod evaluate (context (exp lambda-expression))
+  (make-closure-value (make-variable-expression (get-variable exp))
+                      (get-expression exp)
+                      context))
+
+(defgeneric apply-input (context fn input)
+  (:documentation "Applies input to fn"))
+
+(defmethod apply-input (context (fn lambda-expression) input)
+  (evaluate (put (get-variable fn) input (copy context))
+            fn))
+
+(defmethod apply-input (context fn input)
+  (error (format nil "Cannot apply ~a to ~a" input fn)))
+
+(defmethod evaluate (context (exp application-expression))
+  (let ((input (evaluate context (get-value exp)))
+        (function (get-function exp)))
+    (evaluate
+     context
+     (apply-input context function input))))
+
+(defmethod evaluate (context (exp closure-value))
+  (evaluate (get-context exp)
+            (get-expression exp)))
+
 (format t "test00: ~a~%"
         (get-value
          (evaluate (empty-context)
@@ -226,3 +326,76 @@
                      (make-binary-expression "*"
                                              (make-constant-expression -20)
                                              (make-constant-expression 2)))))))
+
+(format t "test03: ~a~%"
+        (get-value
+         (evaluate (empty-context)
+                   (make-if-expression
+                    (make-binary-expression "+"
+                                            (make-constant-expression 5)
+                                            (make-unary-expression "-"
+                                             (make-constant-expression 4)))
+                    (make-binary-expression "*"
+                                            (make-constant-expression 21)
+                                            (make-constant-expression 2))
+                    (make-constant-expression 0)))))
+
+(format t "test04: ~a~%"
+        (get-value
+         (evaluate (empty-context)
+                   (make-if-expression
+                    (make-binary-expression "+"
+                                            (make-constant-expression 5)
+                                            (make-constant-expression 4))
+                    (make-constant-expression 0)
+                    (make-binary-expression "*"
+                                            (make-constant-expression 21)
+                                            (make-constant-expression 2))))))
+
+(format t "test05: ~a~%"
+        (evaluate
+         (empty-context)
+         (make-lambda-expression
+          (make-variable-expression "x")
+          (make-binary-expression "*"
+                                  (make-variable-expression "x")
+                                  (make-constant-expression 2)))))
+
+(format t "test06: ~a~%"
+        (get-value
+         (evaluate
+          (empty-context)
+          (make-application-expression
+           (make-lambda-expression
+            "x"
+            (make-binary-expression "*"
+                                    (make-variable-expression "x")
+                                    (make-constant-expression 2)))
+           (make-constant-expression 21)))))
+
+ ;; (format t "test07: ~a~%"
+ ;;         (get-value
+ ;;          (evaluate
+ ;;           (empty-context)
+ ;;           (make-application-expression
+ ;;            (make-constant-expression 21)
+ ;;            (make-lambda-expression
+ ;;             "x"
+ ;;             (make-binary-expression
+ ;;              "*"
+ ;;              (make-variable-expression "x")
+ ;;              (make-constant-expression 2)))))))
+
+;; (format t "test08: ~a~%"
+;;         (get-value
+;;          (evaluate
+;;           (empty-context)
+;;           (make-binary-expression
+;;            "+"
+;;            (make-constant-expression 21)
+;;            (make-lambda-expression
+;;             "x"
+;;             (make-binary-expression
+;;              "*"
+;;              (make-variable-expression "x")
+;;              (make-constant-expression 2)))))))
