@@ -78,14 +78,14 @@
 (defgeneric eval-expression (expression)
   (:documentation "Evaluates expression."))
 
-(defmethod eval-expressionn ((expr const-expression))
+(defmethod eval-expression ((expr const-expression))
   (get-value expr))
 
 (defgeneric run-command (state line command)
   (:documentation "Runs command on line with state."))
 
 (defmethod run-command (state line (command print-command))
-  (-> command #'get-expression #'print-value)
+  (-> command #'get-expression #'eval-expression #'print-value)
   (run-next-line state line))
 
 (defmethod run-command (state line (command run-command))
@@ -93,7 +93,7 @@
     (run-command state (first fst-line) (second fst-line))))
 
 (defmethod run-command (state line (command goto-command))
-  (let ((target (get-program-line state (get-value command))))
+  (let ((target (get-program-line (get-program state) (get-value command))))
     (run-command state (get-value command) target)))
 
 (defun run-next-line (state line)
@@ -102,3 +102,20 @@
     (cond
       ((null result) state)
       (t (run-command state (first result) (second result))))))
+
+(run-command
+ (make-state (list
+              (list 10 (make-print-command
+                        (make-const-expression
+                         (make-string-value (format nil "HELLO WORLD~%")))))))
+ -1
+ (make-run-command))
+
+;; (run-command
+;;  (make-state (list
+;;               (list 10 (make-print-command
+;;                         (make-const-expression
+;;                          (make-string-value (format nil "HELLO WORLD~%")))))
+;;               (list 20 (make-goto-command 10))))
+;;  -1
+;;  (make-run-command))
