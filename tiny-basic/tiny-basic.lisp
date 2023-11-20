@@ -20,18 +20,19 @@
                                                  (first slot)))
                                          slots)))))))
 
-(defun fill-to-underscore (result lst)
-  (cond
-    ((null lst) (list result))
-    ((eq (car lst) '_) (cons result (cdr lst)))
-    (t (cons (car lst)
-             (fill-to-underscore result (cdr lst))))))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun fill-to-underscore (result lst)
+    (cond
+      ((null lst) (list result))
+      ((eq (car lst) '_) (cons result (cdr lst)))
+      (t (cons (car lst)
+               (fill-to-underscore result (cdr lst)))))))
 			 
-(defun thread-list (result lst)
-  (cond
-    ((member '_ lst) (fill-to-underscore result lst))
-    (t `(,lst ,result))))
-
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun thread-list (result lst)
+    (cond
+      ((member '_ lst) (fill-to-underscore result lst))
+      (t `(funcall ,lst ,result)))))
 
 (defmacro -> (val &rest rest)
   (reduce (lambda (result fn)
@@ -62,8 +63,8 @@
 (defgeneric print-value (value)
   (:documentation "Pretty prints value."))
 
-(defmethod print-value ((value string-value))
-  (format t "~a" value))
+(defmethod print-value ((val string-value))
+  (format t "~a" (get-value val)))
 
 (defun get-program-line (state line)
   (cond
@@ -78,26 +79,26 @@
   (:documentation "Evaluates expression."))
 
 (defmethod eval-expressionn ((expr const-expression))
-  (value expr))
+  (get-value expr))
 
 (defgeneric run-command (state line command)
   (:documentation "Runs command on line with state."))
 
 (defmethod run-command (state line (command print-command))
-  (-> command #'expression #'print-value)
+  (-> command #'get-expression #'print-value)
   (run-next-line state line))
 
 (defmethod run-command (state line (command run-command))
-  (let ((fst-line (first (program state))))
+  (let ((fst-line (first (get-program state))))
     (run-command state (first fst-line) (second fst-line))))
 
 (defmethod run-command (state line (command goto-command))
-  (let ((target (get-program-line state (value command))))
-    (run-command state (value command) target)))
+  (let ((target (get-program-line state (get-value command))))
+    (run-command state (get-value command) target)))
 
 (defun run-next-line (state line)
   (let ((result (find-if (lambda (item) (> (first item) line))
-                         (program state))))
+                         (get-program state))))
     (cond
       ((null result) state)
       (t (run-command state (first result) (second result))))))
