@@ -75,6 +75,25 @@
            ((= (car fst) line) (second fst))
            (t (get-program-line rst line)))))))
 
+(defun add-program-line-aux (state line command)
+  (cond
+    ((null state) (list (list line command)))
+    (t (let ((fst (first state))
+             (rst (rest state)))
+         (cond
+           ((= (car fst) line) (cons (list line command) rst))
+           ((< (car fst) line) (cons fst (cons (list line command) rst)))
+           (t (cons fst (add-program-line-aux rst line command))))))))
+
+(defun add-program-line (state line command)
+  (cond
+    ((and state (> (first (first state)) line))
+     (cons (list line command) state))
+    (t (add-program-line-aux state line command))))
+
+(defun max-program-line (state)
+  (apply #'max (mapcar #'first state)))
+
 (defgeneric eval-expression (expression)
   (:documentation "Evaluates expression."))
 
@@ -103,6 +122,19 @@
       ((null result) state)
       (t (run-command state (first result) (second result))))))
 
+(defun run-input (state line command)
+  (cond
+    ((null line) (run-command state
+                              (max-program-line (get-program state))
+                              command)
+     state)
+    (t (make-state (add-program-line (get-program state) line command)))))
+
+(defun run-inputs (state lst)
+  (reduce (lambda (s cmd) (run-input s (first cmd) (second cmd)))
+          lst
+          :initial-value state))
+
 (run-command
  (make-state (list
               (list 10 (make-print-command
@@ -119,3 +151,13 @@
 ;;               (list 20 (make-goto-command 10))))
 ;;  -1
 ;;  (make-run-command))
+
+(run-inputs (make-state nil)
+            (list
+             (list 10 (make-print-command
+                       (make-const-expression
+                        (make-string-value (format nil "HELLO WORLD~%")))))
+             (list 5 (make-print-command
+                       (make-const-expression
+                        (make-string-value (format nil "HELLO NPRG077~%")))))
+             (list nil (make-run-command))))
