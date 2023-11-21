@@ -45,8 +45,21 @@
 (defunclass string-value ((value ""))
   (:documentation "Represents string."))
 
+(defunclass number-value ((value 0))
+  (:documentation "Represents number."))
+
+(defunclass boolean-value ((value nil))
+  (:documentation "Represents boolean."))
+
 (defunclass const-expression ((value nil))
   (:documentation "Represents constant expression."))
+
+(defunclass function-expression ((name "")
+                                 (arguments nil))
+  (:documentation "Represents function expression."))
+
+(defunclass variable-expression ((name ""))
+  (:documentation "Represents variable expression."))
 
 (defunclass print-command ((expression nil))
   (:documentation "Represents print command."))
@@ -57,14 +70,56 @@
 (defunclass goto-command ((value 0))
   (:documentation "Represents goto command."))
 
-(defunclass state ((program nil))
+(defunclass assign-command ((name "")
+                            (argument nil))
+  (:documentation "Represents assign command."))
+
+(defunclass if-command ((check nil)
+                        (command nil))
+  (:documentation "Represents if command."))
+
+(defunclass state ((program nil)
+                   (context (make-hash-table)))
   (:documentation "Represents state of the program."))
+
+(defun put (key val collection)
+  (setf (gethash key collection) val)
+  collection)
+
+(defun contains? (key collection)
+  (multiple-value-bind (val found?) (gethash key collection)
+    (declare (ignore val))
+    (cond
+      (found? t)
+      (t nil))))
+
+(defun obtain (key collection)
+  (gethash key collection))
+
+(defun hash-table-from-list (&rest pairs)
+  (reduce (lambda (collection pair)
+            (put (first pair) (second pair) collection))
+          pairs
+          :initial-value (make-hash-table)))
+
+(defun copy-hash-table (collection)
+  (apply #'hash-table-from-list (maphash (lambda (key val)
+                                           (list key val))
+                                         collection)))
 
 (defgeneric print-value (value)
   (:documentation "Pretty prints value."))
 
 (defmethod print-value ((val string-value))
   (format t "~a" (get-value val)))
+
+(defmethod print-value ((val number-value))
+  (format t "~a" (get-value val)))
+
+(defmethod print-value ((val boolean-value))
+  (cond
+    (val (format t "TRUE"))
+    (t (format t "FALSE"))))
 
 (defun get-program-line (state line)
   (cond
@@ -76,35 +131,63 @@
            (t (get-program-line rst line)))))))
 
 (defun add-program-line-aux (state line command)
-  (cond
+  ( cond
     ((null state) (list (list line command)))
     (t (let ((fst (first state))
              (rst (rest state)))
          (cond
-           ((= (car fst) line) (cons (list line command) rst))
-           ((< (car fst) line) (cons fst (cons (list line command) rst)))
+           ((= (first fst) line) (cons (list line command) rst))
+           ((> (first fst) line)
+            (cons (list line command) state))
            (t (cons fst (add-program-line-aux rst line command))))))))
 
 (defun add-program-line (state line command)
   (cond
-    ((and state (> (first (first state)) line))
-     (cons (list line command) state))
-    (t (add-program-line-aux state line command))))
+    ((null state) (list (list line command)))
+    (t (let ((fst (first state)))
+         (cond
+           ((> (first fst) line) (cons (list line command) state))
+           (t (add-program-line-aux state line command)))))))
 
 (defun max-program-line (state)
   (apply #'max (mapcar #'first state)))
 
-(defgeneric eval-expression (expression)
+(defgeneric eval-expression (expression state)
   (:documentation "Evaluates expression."))
 
-(defmethod eval-expression ((expr const-expression))
+(defmethod eval-expression ((expr const-expression) state)
   (get-value expr))
+
+(defmethod eval-expression ((expr function-expression) state)
+  (let ((name (get-name expr))
+        (arguments (get-arguments expr)))
+    (cond
+      ((string= name "-")
+       (make-number-value
+        (apply #'-
+               (mapcar
+                (lambda (x)
+                  (eval-expression x state))
+                arguments))))
+      ((string= name "=")
+       (make-boolean-value
+        (apply #'equal
+               (mapcar
+                (lambda (x)
+                  (eval-expression x state))
+                arguments)))))))
+
+(defmethod eval-expression ((expr variable-expression) state)
+  (let ((context (get-context state)))
+    (cond
+      ((contains? (get-name expr) context) (eval-expression (obtain (get-name expr) context) state))
+      (t (error (format nil "Variable ~a not found." (get-name expr)))))))
 
 (defgeneric run-command (state line command)
   (:documentation "Runs command on line with state."))
 
 (defmethod run-command (state line (command print-command))
-  (-> command #'get-expression #'eval-expression #'print-value)
+  (-> command #'get-expression (eval-expression _ state) #'print-value)
   (run-next-line state line))
 
 (defmethod run-command (state line (command run-command))
@@ -114,6 +197,18 @@
 (defmethod run-command (state line (command goto-command))
   (let ((target (get-program-line (get-program state) (get-value command))))
     (run-command state (get-value command) target)))
+
+(defmethod run-command (state line (command assign-command))
+  (let* ((expr (get-argument command))
+         (name (get-name command)))
+    (run-next-line (make-state (get-program state) (put name expr (get-context state))) line)))
+
+(defmethod if-command (state line (command if-command))
+  (let* ((check (get-value (eval-expression (get-check command))))
+         (cmd (get-command command)))
+    (cond
+      ((equal check T) (run-command state line cmd))
+      (t (run-next-line state line)))))
 
 (defun run-next-line (state line)
   (let ((result (find-if (lambda (item) (> (first item) line))
@@ -126,9 +221,8 @@
   (cond
     ((null line) (run-command state
                               (max-program-line (get-program state))
-                              command)
-     state)
-    (t (make-state (add-program-line (get-program state) line command)))))
+                              command))
+    (t (make-state (add-program-line (get-program state) line command) (get-context state)))))
 
 (defun run-inputs (state lst)
   (reduce (lambda (s cmd) (run-input s (first cmd) (second cmd)))
@@ -139,7 +233,8 @@
  (make-state (list
               (list 10 (make-print-command
                         (make-const-expression
-                         (make-string-value (format nil "HELLO WORLD~%")))))))
+                         (make-string-value (format nil "HELLO WORLD~%"))))))
+             (make-hash-table))
  -1
  (make-run-command))
 
@@ -152,7 +247,7 @@
 ;;  -1
 ;;  (make-run-command))
 
-(run-inputs (make-state nil)
+(run-inputs (make-state nil (make-hash-table))
             (list
              (list 10 (make-print-command
                        (make-const-expression
@@ -160,4 +255,25 @@
              (list 5 (make-print-command
                        (make-const-expression
                         (make-string-value (format nil "HELLO NPRG077~%")))))
+             (list nil (make-run-command))))
+
+(run-inputs (make-state nil (make-hash-table))
+            (list
+             (list 10
+                   (make-assign-command "S"
+                                        (make-const-expression
+                                         (make-string-value (format nil "HELLO WORLD~%")))))
+             (list 20 (make-assign-command "I"
+                                           (make-const-expression
+                                            (make-number-value 1))))
+             (list 30 (make-assign-command "B"
+                                           (make-function-expression
+                                            "="
+                                            (list
+                                             (make-variable-expression "I")
+                                             (make-const-expression
+                                              (make-number-value 1))))))
+             (list 40 (make-print-command (make-variable-expression "S")))
+             (list 50 (make-print-command (make-variable-expression "I")))
+             (list 60 (make-print-command (make-variable-expression "B")))
              (list nil (make-run-command))))
