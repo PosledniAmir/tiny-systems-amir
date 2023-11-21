@@ -297,3 +297,21 @@
                         (make-string-value "HELLO"))))
              (list 60 (make-print-command (make-const-expression (make-string-value "YES"))))
              (list nil (make-run-command))))
+
+(run-inputs (make-state nil (make-hash-table))
+            (list
+             (list 10 (make-assign-command
+                       "X"
+                       (make-const-expression (make-number-value 10))))
+             (list 20 (make-assign-command
+                       "Y"
+                       (make-function-expression
+                        "-"
+                        (list
+                         (make-variable-expression "X")
+                         (make-const-expression (make-number-value 10))))))
+             (list 30 (make-assign-command
+                       "X"
+                       (make-const-expression (make-number-value 20))))
+             (list 40 (make-print-command (make-variable-expression "Y")))
+             (list nil (make-run-command))))
