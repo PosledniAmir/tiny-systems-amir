@@ -42,49 +42,41 @@
           rest
           :initial-value val))
 
-(defunclass variable-type ((name nil))
-  (:documentation "Variable."))
+(defunclass zero-number () (:documentation "Zero."))
 
-(defunclass bool-type ()
-  (:documentation "Bool."))
+(defunclass succ-number ((number nil)) (:documentation "Succ."))
 
-(defunclass number-type ()
-  (:documentation "Number."))
-
-(defunclass list-type ((type nil))
-  (:documentation "List."))
+(defunclass variable-number ((name nil)) (:documentation "Variable"))
 
 (defgeneric occurs-check (name number)
   (:documentation "Checks whether variable 'name' is in the 'number'."))
 
-(defmethod occurs-check (name (type variable-type))
-  (string= name (get-name type)))
-
-(defmethod occurs-check (name (type bool-type))
+(defmethod occurs-check (name (n zero-number))
   nil)
 
-(defmethod occurs-check (name (type number-type))
-  nil)
+(defmethod occurs-check (name (n succ-number))
+  (let  ((next (get-number n)))
+    (occurs-check name next)))
 
-(defmethod occurs-check (name (type list-type))
-  (occurs-check name (get-type type)))
+(defmethod occurs-check (name (n variable-number))
+  (let ((var (get-name n)))
+    (string= name var)))
 
 (defgeneric substitute-name (name what number)
   (:documentation "Substitutes variable 'name' by 'what' in 'number'."))
 
-(defmethod substitute-name (name what (type variable-type))
-  (cond
-    ((string= name (get-name type)) what)
-    (t type)))
+(defmethod substitute-name (name what (n zero-number))
+  n)
 
-(defmethod substitute-name (name what (type bool-type))
-  type)
+(defmethod substitute-name (name what (n succ-number))
+  (let ((next (get-number n)))
+    (make-succ-number (substitute-name name what next))))
 
-(defmethod substitute-name (name what (type number-type))
-  type)
-
-(defmethod substitute-name (name what (type list-type))
-  (make-list-type (substitute-name name what (get-type type))))
+(defmethod substitute-name (name what (n variable-number))
+  (let ((var (get-name n)))
+    (cond
+      ((string= name var) what)
+      (t n))))
 
 (defun substitute-list (name what list)
   (mapcar (lambda (item) (substitute-name name what item)) list))
