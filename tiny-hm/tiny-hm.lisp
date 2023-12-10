@@ -100,21 +100,39 @@
 (defgeneric solve-aux (a b constraints)
   (:documentation "Solve helper function, takes two items from constraints and the rest."))
 
-(defmethod solve-aux ((a zero-number) (b zero-number) lst)
+(defmethod solve-aux ((a number-type) (b number-type) lst)
   (solve lst))
 
-(defmethod solve-aux ((a zero-number) (b succ-number) lst)
-  (error "Cannot solve 'Zero' and 'Succ'."))
+(defmethod solve-aux ((a bool-type) (b bool-type) lst)
+  (solve lst))
 
-(defmethod solve-aux ((a succ-number) (b zero-number) lst)
-  (error "Cannot solve 'Succ' and 'Zero'."))
+(defmethod solve-aux ((a list-type) (b list-type) lst)
+  (let ((a-type (get-type a))
+        (b-type (get-type b)))
+    (solve-aux a-type b-type lst)))
 
-(defmethod solve-aux ((a succ-number) (b succ-number) lst)
-  (let ((a-in (get-number a))
-        (b-in (get-number b)))
-    (solve (cons a-in (cons b-in lst)))))
+(defmethod solve-aux ((a list-type) (b number-type) lst)
+  (error "Cannot solve List and Number."))
 
-(defmethod solve-aux ((a variable-number) b lst)
+(defmethod solve-aux ((a number-type) (b list-type) lst)
+  (error "Cannot solve Number and List."))
+
+(defmethod solve-aux ((a list-type) (b bool-type) lst)
+  (error "Cannot solve List and Bool."))
+
+(defmethod solve-aux ((a bool-type) (b list-type) lst)
+  (error "Cannot solve Bool and List."))
+
+(defmethod solve-aux ((a bool-type) (b number-type) lst)
+  (error "Cannot solve Bool and Number."))
+
+(defmethod solve-aux ((a number-type) (b bool-type) lst)
+  (error "Cannot solve Number and Bool."))
+
+(defmethod solve-aux (a (b variable-type) lst)
+  (solve-aux b a lst))
+
+(defmethod solve-aux ((a variable-type) b lst)
   (let ((name (get-name a)))
     (cond
       ((occurs-check name b) (error "Cannot solve occurs-check."))
@@ -123,7 +141,7 @@
                 (n (substitute-names s b)))
            (cons name (cons n s)))))))
 
-(defmethod solve-aux (a (b variable-number) lst)
+(defmethod solve-aux (a (b variable-type) lst)
   (solve-aux b a lst))
 
 (defun solve (constraints)
@@ -135,44 +153,157 @@
          (solve-aux a b r)))))
 
 (defun demo00 ()
-  (format T
-          "~A~%"
-          (solve (list (make-succ-number (make-variable-number "x"))
-                       (make-succ-number (make-zero-number))))))
+  (solve (list
+          (make-list-type (make-variable-type "a"))
+          (make-list-type (make-number-type))
+          (make-variable-type "b")
+          (make-list-type (make-variable-type "a")))))
 
 (defun demo01 ()
-  (format T
-          "~A~%"
-          (solve (list (make-succ-number (make-succ-number (make-zero-number)))
-                       (make-succ-number (make-zero-number))))))
+  (solve (list
+          (make-list-type (make-variable-type "a"))
+          (make-variable-type "b")
+          (make-variable-type "b")
+          (make-bool-type))))
 
 (defun demo02 ()
-  (format T
-          "~A~%"
-          (solve (list (make-succ-number (make-succ-number (make-variable-number "x")))
-                       (make-succ-number (make-zero-number))))))
+  (solve (list
+          (make-list-type (make-variable-type "a"))
+          (make-variable-type "b")
+          (make-variable-type "b")
+          (make-list-type (make-number-type)))))
 
 (defun demo03 ()
-  (format T
-          "~A~%"
-          (solve (list (make-succ-number
-                        (make-variable-number "x"))
-                       (make-succ-number
-                        (make-zero-number))
-                       (make-variable-number "y")
-                       (make-succ-number
-                        (make-variable-number "x"))))))
+  (solve (list
+          (make-list-type (make-variable-type "a"))
+          (make-variable-type "a"))))
+
+(defunclass constant-expression ((value 0))
+  (:documentation "Constant expression with value."))
+
+(defunclass binary-expression ((name nil) (first nil) (second nil))
+  (:documentation "Binary expression with name, first, second."))
+
+(defunclass if-expression ((condition nil) (first nil) (second nil))
+  (:documentation "If expression with condition, first, second."))
+
+(defunclass variable-expression ((name nil))
+  (:documentation "Variable expression with name."))
+
+(defunclass typing-context ((context (make-hash-table)))
+  (:documentation "Context with context."))
+
+(defun empty-context ()
+  (make-instance 'typing-context))
+
+(defun typing-context-from-list (&rest pairs)
+  (reduce (lambda (collection pair)
+            (put! (first pair) (second pair) collection))
+          pairs
+          :initial-value (empty-context)))
+
+(defgeneric put! (key value collection)
+  (:documentation "Puts value under key in collection."))
+
+(defmethod put! (key value (collection typing-context))
+  (setf (gethash key (get-context collection)) value)
+  collection)
+
+(defgeneric put (key value collection)
+  (:documentation "Puts value under key in collection."))
+
+(defmethod put (key value (collection typing-context))
+  (put! key value (copy collection)))
+
+(defgeneric contains? (key collection)
+  (:documentation "Checks whether key is in collection."))
+
+(defmethod contains? (key (collection typing-context))
+  (multiple-value-bind (value found?) (gethash key (get-context collection))
+    (declare (ignore value))
+    (cond
+      (found? t)
+      (t nil))))
+
+(defgeneric obtain (key collection)
+  (:documentation "Obtains value according to key from collection."))
+
+(defmethod obtain (key (collection typing-context))
+  (gethash key (get-context collection)))
+
+(defgeneric copy (collection)
+  (:documentation "Copies the collection"))
+
+(defmethod copy ((collection typing-context))
+  (apply #'typing-context-from-list
+         (maphash (lambda (key val) (list key val))
+                  (get-context collection))))
+
+(defgeneric generate (context  expression)
+  (:documentation "Generates constraints."))
+
+(defmethod generate (context (expression constant-expression))
+  (let ((val (get-value expression)))
+    (values (make-number-type) nil)))
+
+(defun generate-plus (context first second)
+  (let ((tc1 (multiple-value-list (generate context first)))
+        (tc2 (multiple-value-list (generate context second))))
+    (values (make-number-type)
+            (concatenate 'list
+                         (second tc1)
+                         (second tc2)
+                         (list (first tc1)
+                               (make-number-type)
+                               (first tc2)
+                               (make-number-type))))))
+
+(defun generate-equals (context first second)
+  (let ((tc1 (multiple-value-list (generate context first)))
+        (tc2 (multiple-value-list (generate context second))))
+    (values (make-bool-type)
+            (concatenate 'list
+                         (second tc1)
+                         (second tc2)
+                         (list (first tc1)
+                               (make-number-type)
+                               (first tc1)
+                               (make-number-type))))))
+
+(defmethod generate (context (expression binary-expression))
+  (let* ((name (get-name expression))
+         (first (get-first expression))
+         (second (get-second expression)))
+    (cond
+      ((string= "+" name) (generate-plus context first second))
+      ((string= "=" name) (generate-equals contex first second))
+      (t (error (format nil "Binary operator ~a not supported." name))))))
+
+(defmethod generate (context (expression variable-expression))
+  (let ((name (get-name expression)))
+    (values (obtain name context) nil)))
+
+(defmethod generate (context (expression if-expression))
+  (let ((condition (multiple-value-list (generate context (get-condition expression))))
+        (first (multiple-value-list (generate context (get-first expression))))
+        (second (multiple-value-list (generate context (get-second expression)))))
+    (values (first first)
+            (concatenate 'list
+                         (second first)
+                         (second second)
+                         (list
+                          (first condition)
+                          (make-bool-type)
+                          (first second)
+                          (first first))))))
 
 (defun demo04 ()
-  (format T
-          "~A~%"
-          (solve (list (make-variable-number "x")
-                       (make-succ-number (make-succ-number (make-variable-number "z")))
-                       (make-succ-number (make-variable-number "z"))
-                       (make-succ-number (make-zero-number))))))
-
-(defun demo05 ()
-  (format T
-          "~A~%"
-          (solve (list (make-variable-number "x")
-                       (make-succ-number (make-variable-number "x"))))))
+  (let* ((e1 (make-binary-expression "="
+                                    (make-variable-expression "x")
+                                    (make-binary-expression "+"
+                                                            (make-constant-expression 10)
+                                                            (make-variable-expression "x"))))
+         (tc (multiple-value-list (generate
+                                   (typing-context-from-list (list "x" (make-variable-type "a")))
+                                   e1))))
+    (solve (second tc)))) 
