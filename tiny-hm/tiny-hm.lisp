@@ -54,6 +54,9 @@
 (defunclass list-type ((type nil))
   (:documentation "List."))
 
+(defunclass function-type ((input nil) (output nil))
+  (:documentation "Function type with input and output."))
+
 (defgeneric occurs-check (name number)
   (:documentation "Checks whether variable 'name' is in the 'number'."))
 
@@ -68,6 +71,12 @@
 
 (defmethod occurs-check (name (type list-type))
   (occurs-check name (get-type type)))
+
+(defmethod occurs-check (name (type function-type))
+  (let ((input (get-input type))
+        (output (get-output type)))
+    (or (occurs-check name input)
+        (occurs-check name output))))
 
 (defgeneric substitute-name (name what number)
   (:documentation "Substitutes variable 'name' by 'what' in 'number'."))
@@ -85,6 +94,10 @@
 
 (defmethod substitute-name (name what (type list-type))
   (make-list-type (substitute-name name what (get-type type))))
+
+(defmethod substitute-name (name what (type function-type))
+  (make-function-type (substitute-name name what (get-input type))
+                      (substitute-name name what (get-output type))))
 
 (defun substitute-list (name what list)
   (mapcar (lambda (item) (substitute-name name what item)) list))
@@ -132,6 +145,9 @@
 (defmethod solve-aux (a (b variable-type) lst)
   (solve-aux b a lst))
 
+(defmethod solve-aux ((a variable-type) (b variable-type) lst)
+  (solve lst))
+
 (defmethod solve-aux ((a variable-type) b lst)
   (let ((name (get-name a)))
     (cond
@@ -143,6 +159,16 @@
 
 (defmethod solve-aux (a (b variable-type) lst)
   (solve-aux b a lst))
+
+(defmethod solve-aux ((a function-type) (b function-type) lst)
+  (let ((a-in (get-input a))
+        (b-in (get-input b))
+        (a-out (get-output a))
+        (b-out (get-output b)))
+    (solve (cons a-in
+                 (cons b-in
+                       (cons a-out
+                             (cons b-out lst)))))))
 
 (defun solve (constraints)
   (cond
@@ -190,6 +216,15 @@
 (defunclass variable-expression ((name nil))
   (:documentation "Variable expression with name."))
 
+(defunclass application-expression ((first nil) (second nil))
+  (:documentation "Application expression with first and second."))
+
+(defunclass lambda-expression ((name nil) (first nil))
+  (:documentation "Lambda expression with name and first."))
+
+(defunclass let-expression ((name nil) (first nil) (second nil))
+  (:documentation "Let expression with name first and second."))
+
 (defunclass typing-context ((context (make-hash-table)))
   (:documentation "Context with context."))
 
@@ -212,8 +247,13 @@
 (defgeneric put (key value collection)
   (:documentation "Puts value under key in collection."))
 
+(defun breaker (item)
+  (slynk::simple-break)
+  item)
+
 (defmethod put (key value (collection typing-context))
-  (put! key value (copy collection)))
+  (let ((item (put! key value (copy collection))))
+    item))
 
 (defgeneric contains? (key collection)
   (:documentation "Checks whether key is in collection."))
@@ -231,13 +271,18 @@
 (defmethod obtain (key (collection typing-context))
   (gethash key (get-context collection)))
 
+(defgeneric to-list (collection)
+  (:documentation "Converts collection to list."))
+
+(defmethod to-list ((collection typing-context))
+  (loop for key being the hash-keys of (get-context collection) using (hash-value value)
+        collect (list key value)))
+
 (defgeneric copy (collection)
   (:documentation "Copies the collection"))
 
 (defmethod copy ((collection typing-context))
-  (apply #'typing-context-from-list
-         (maphash (lambda (key val) (list key val))
-                  (get-context collection))))
+  (apply #'typing-context-from-list (to-list collection)))
 
 (defgeneric generate (context  expression)
   (:documentation "Generates constraints."))
@@ -276,10 +321,12 @@
     (cond
       ((string= "+" name) (generate-plus context first second))
       ((string= "=" name) (generate-equals context first second))
+      ((string= "*" name) (generate-plus context first second))
       (t (error (format nil "Binary operator ~a not supported." name))))))
 
 (defmethod generate (context (expression variable-expression))
   (let ((name (get-name expression)))
+    (format t "generate variable: ~a~%" name)
     (values (obtain name context) nil)))
 
 (defmethod generate (context (expression if-expression))
@@ -296,12 +343,58 @@
                           (first second)
                           (first first))))))
 
+(defvar *type-variable-counter* 0)
+(defun new-variable-type ()
+  (incf *type-variable-counter*)
+  (make-variable-type (format nil "_a~D" *type-variable-counter*)))
+
+(defmethod generate (context (expression let-expression))
+  (let* ((first (multiple-value-list (generate context (get-first expression))))
+         (name (get-name expression))
+         (ctx (put name (first first) context))
+         (second (multiple-value-list (generate ctx (get-second expression)))))
+    (values (first second)
+            (concatenate 'list
+                         (second first)
+                         (second second)))))
+
+(defmethod generate (context (expression lambda-expression))
+  (format t "lambda: ~a~%" (get-name expression))
+  (let* ((name (get-name expression))
+         (var (new-variable-type))
+         (ctx  (put name var context))
+         (tc (multiple-value-list (generate ctx (get-first expression)))))
+    (values (make-function-type var (first tc))
+            (concatenate 'list
+                         (second tc)))))
+
+(defmethod generate (context (expression application-expression))
+  (format t "application ~%")
+  (let ((var (new-variable-type))
+        (first (multiple-value-list (generate context (get-first expression))))
+        (second (multiple-value-list (generate context (get-second expression)))))
+    (format t "context: ~a~%" (get-context context))
+    (format t "first: ~a~%" first)
+    (format t "second: ~a~%" second)
+    (values (first second)
+            (concatenate 'list
+                         (second first)
+                         (second second)
+                         (list (make-function-type var (first second))
+                               (first first))))))
+
+(defun infer (expression)
+  (let* ((tc (multiple-value-list (generate (empty-context) expression)))
+         (sub (solve (second tc)))
+         (type (substitute-names sub (first tc))))
+    type))
+
 (defun demo04 ()
   (let* ((e1 (make-binary-expression "="
-                                    (make-variable-expression "x")
-                                    (make-binary-expression "+"
-                                                            (make-constant-expression 10)
-                                                            (make-variable-expression "x"))))
+                                     (make-variable-expression "x")
+                                     (make-binary-expression "+"
+                                                             (make-constant-expression 10)
+                                                             (make-variable-expression "x"))))
          (tc (multiple-value-list (generate
                                    (typing-context-from-list (list "x" (make-variable-type "a")))
                                    e1))))
@@ -332,3 +425,34 @@
                                          (list "y" (make-variable-type "b")))
                e3))))
     (solve (second tc))))
+
+(defun demo07 ()
+  (infer (make-let-expression "x"
+                              (make-constant-expression 10)
+                              (make-binary-expression "="
+                                                      (make-variable-expression "x")
+                                                      (make-constant-expression 10)))))
+
+(defun demo08 ()
+  (infer (make-let-expression "f"
+                              (make-lambda-expression "x"
+                                                      (make-binary-expression "*"
+                                                                              (make-variable-expression "x")
+                                                                              (make-constant-expression 2)))
+                              (make-binary-expression "+"
+                                                      (make-application-expression
+                                                       (make-variable-expression "f")
+                                                       (make-constant-expression 20))
+                                                      (make-application-expression
+                                                       (make-variable-expression "f")
+                                                       (make-constant-expression 1))))))
+
+(defun demo09 ()
+  (infer (make-lambda-expression "x"
+                                 (make-lambda-expression "f"
+                                                         (make-application-expression
+                                                          (make-variable-expression "f")
+                                                          (make-application-expression
+                                                           (make-variable-expression "f")
+                                                           (make-variable-expression "x")))))))
+
