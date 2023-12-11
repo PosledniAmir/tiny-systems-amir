@@ -243,8 +243,7 @@
   (:documentation "Generates constraints."))
 
 (defmethod generate (context (expression constant-expression))
-  (let ((val (get-value expression)))
-    (values (make-number-type) nil)))
+  (values (make-number-type) nil))
 
 (defun generate-plus (context first second)
   (let ((tc1 (multiple-value-list (generate context first)))
@@ -276,7 +275,7 @@
          (second (get-second expression)))
     (cond
       ((string= "+" name) (generate-plus context first second))
-      ((string= "=" name) (generate-equals contex first second))
+      ((string= "=" name) (generate-equals context first second))
       (t (error (format nil "Binary operator ~a not supported." name))))))
 
 (defmethod generate (context (expression variable-expression))
@@ -306,4 +305,30 @@
          (tc (multiple-value-list (generate
                                    (typing-context-from-list (list "x" (make-variable-type "a")))
                                    e1))))
-    (solve (second tc)))) 
+    (solve (second tc))))
+
+(defun demo05 ()
+  (let* ((e2 (make-if-expression (make-variable-expression "x")
+                                 (make-binary-expression "+"
+                                                         (make-constant-expression 2)
+                                                         (make-constant-expression 1))
+                                 (make-variable-expression "y")))
+         (tc (multiple-value-list
+              (generate
+               (typing-context-from-list (list "x" (make-variable-type "a"))
+                                         (list "y" (make-variable-type "b")))
+               e2))))
+    (solve (second tc))))
+
+(defun demo06 ()
+  (let* ((e3 (make-if-expression (make-variable-expression "x")
+                                 (make-binary-expression "+"
+                                                         (make-constant-expression 2)
+                                                         (make-constant-expression 1))
+                                 (make-variable-expression "x")))
+         (tc (multiple-value-list
+              (generate
+               (typing-context-from-list (list "x" (make-variable-type "a"))
+                                         (list "y" (make-variable-type "b")))
+               e3))))
+    (solve (second tc))))
