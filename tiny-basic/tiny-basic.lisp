@@ -92,7 +92,7 @@
   (:documentation "Represents state of the program."))
 
 (defun default-screen ()
-  (make-array '(60 20) :initial-element " "))
+  (make-array '(20 60) :initial-element " "))
 
 (defun poke-screen (state x y c)
   (let ((scr (get-screen state)))
@@ -246,7 +246,7 @@
                  (put name
                       (make-const-expression (eval-expression expr state))
                       (get-context state))
-                 (default-screen))
+                 (get-screen state))
      line)))
 
 (defmethod run-command (state line (command if-command))
@@ -279,7 +279,7 @@
                               command))
     (t (make-state (add-program-line (get-program state) line command)
                    (get-context state)
-                   (default-screen)))))
+                   (get-screen state)))))
 
 (defun run-inputs (state lst)
   (reduce (lambda (s cmd) (run-input s (first cmd) (second cmd)))
@@ -437,16 +437,15 @@
               (list
                (list 10 (make-clear-command))
                (list 20 (make-poke-command
-                         (.@ "RND" (.num 60))
                          (.@ "RND" (.num 20))
+                         (.@ "RND" (.num 60))
                          (.str "*")))
                (list 30 (make-assign-command "I" (.num 100)))
                (list 40 (make-poke-command
-                         (.@ "RND" (.num 60))
                          (.@ "RND" (.num 20))
-                         (.str " ")))
+                         (.@ "RND" (.num 60))
+                         (.str "*")))
                (list 50 (make-assign-command "I" (.- (.var "I") (.num 1))))
                (list 60 (make-if-command (.> (.var "I") (.num 1))
                                          (make-goto-command 40)))
-               (list 100 (make-goto-command 20))
                (list nil (make-run-command)))))
