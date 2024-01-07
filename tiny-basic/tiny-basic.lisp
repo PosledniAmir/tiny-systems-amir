@@ -201,7 +201,12 @@
 (defmethod run-command (state line (command assign-command))
   (let* ((expr (get-argument command))
          (name (get-name command)))
-    (run-next-line (make-state (get-program state) (put name expr (get-context state))) line)))
+    (run-next-line
+     (make-state (get-program state)
+                 (put name
+                      (make-const-expression (eval-expression expr state))
+                      (get-context state)))
+     line)))
 
 (defmethod run-command (state line (command if-command))
   (let* ((check (get-value (eval-expression (get-check command) state)))
@@ -229,89 +234,104 @@
           lst
           :initial-value state))
 
-(run-command
- (make-state (list
-              (list 10 (make-print-command
-                        (make-const-expression
-                         (make-string-value (format nil "HELLO WORLD~%"))))))
-             (make-hash-table))
- -1
- (make-run-command))
+(defun demo00 ()
+  (run-command
+   (make-state (list
+                (list 10 (make-print-command
+                          (make-const-expression
+                           (make-string-value (format nil "HELLO WORLD~%"))))))
+               (make-hash-table))
+   -1
+   (make-run-command)))
 
-;; (run-command
-;;   (make-state (list
-;;                (list 10 (make-print-command
-;;                          (make-const-expression
-;;                           (make-string-value (format nil "HELLO WORLD~%")))))
-;;                (list 20 (make-goto-command 10))))
-;;   -1
-;;   (make-run-command))
+(defun demo01 ()
+  (run-command
+   (make-state (list
+                (list 10 (make-print-command
+                          (make-const-expression
+                           (make-string-value (format nil "HELLO WORLD~%")))))
+                (list 20 (make-goto-command 10)))
+               (make-hash-table))
+   -1
+   (make-run-command)))
 
- (run-inputs (make-state nil (make-hash-table))
-             (list
-              (list 10 (make-print-command
-                        (make-const-expression
-                         (make-string-value (format nil "HELLO WORLD~%")))))
-              (list 5 (make-print-command
-                        (make-const-expression
-                         (make-string-value (format nil "HELLO NPRG077~%")))))
-              (list nil (make-run-command))))
-
- (run-inputs (make-state nil (make-hash-table))
-             (list
-              (list 10
-                    (make-assign-command "S"
-                                         (make-const-expression
-                                          (make-string-value (format nil "HELLO WORLD~%")))))
-              (list 20 (make-assign-command "I"
-                                            (make-const-expression
-                                             (make-number-value 1))))
-              (list 30 (make-assign-command "B"
-                                            (make-function-expression
-                                             "="
-                                             (list
-                                              (make-variable-expression "I")
-                                              (make-const-expression
-                                               (make-number-value 1))))))
-              (list 40 (make-print-command (make-variable-expression "S")))
-              (list 50 (make-print-command (make-variable-expression "I")))
-              (list 60 (make-print-command (make-variable-expression "B")))
-              (list nil (make-run-command))))
-
-(run-inputs (make-state nil (make-hash-table))
-            (list
-             (list 10 (make-assign-command
-                       "I"
-                       (make-const-expression
-                        (make-number-value 1))))
-             (list 20 (make-if-command
-                       (make-function-expression
-                        "="
-                        (list
-                         (make-variable-expression "I")
+(defun demo02 ()
+  (run-inputs (make-state nil (make-hash-table))
+              (list
+               (list 10 (make-print-command
                          (make-const-expression
-                          (make-number-value 1))))
-                       (make-goto-command 60)))
-             (list 30 (make-print-command
-                       (make-const-expression
-                        (make-string-value "HELLO"))))
-             (list 60 (make-print-command (make-const-expression (make-string-value "YES"))))
-             (list nil (make-run-command))))
+                          (make-string-value (format nil "HELLO WORLD~%")))))
+               (list 10 (make-print-command
+                         (make-const-expression
+                          (make-string-value (format nil "HELLO NPRG077~%")))))
+               (list nil (make-run-command)))))
 
-(run-inputs (make-state nil (make-hash-table))
-            (list
-             (list 10 (make-assign-command
-                       "X"
-                       (make-const-expression (make-number-value 10))))
-             (list 20 (make-assign-command
-                       "Y"
-                       (make-function-expression
-                        "-"
-                        (list
-                         (make-variable-expression "X")
-                         (make-const-expression (make-number-value 10))))))
-             (list 30 (make-assign-command
-                       "X"
-                       (make-const-expression (make-number-value 20))))
-             (list 40 (make-print-command (make-variable-expression "Y")))
-             (list nil (make-run-command))))
+(defun demo03 ()
+  (run-inputs (make-state nil (make-hash-table))
+              (list
+               (list 10
+                     (make-assign-command "S"
+                                          (make-const-expression
+                                           (make-string-value (format nil "HELLO WORLD~%")))))
+               (list 20 (make-assign-command "I"
+                                             (make-const-expression
+                                              (make-number-value 1))))
+               (list 30 (make-assign-command "B"
+                                             (make-function-expression
+                                              "="
+                                              (list
+                                               (make-variable-expression "I")
+                                               (make-const-expression
+                                                (make-number-value 1))))))
+               (list 40 (make-print-command (make-variable-expression "S")))
+               (list 50 (make-print-command (make-variable-expression "I")))
+               (list 60 (make-print-command (make-variable-expression "B")))
+               (list nil (make-run-command)))))
+
+(defun demo04 ()
+  (run-inputs (make-state nil (make-hash-table))
+              (list
+               (list 10 (make-assign-command
+                         "I"
+                         (make-const-expression
+                          (make-number-value 10))))
+               (list 20 (make-if-command
+                         (make-function-expression
+                          "="
+                          (list
+                           (make-variable-expression "I")
+                           (make-const-expression
+                            (make-number-value 1))))
+                         (make-goto-command 60)))
+               (list 30 (make-print-command
+                         (make-const-expression
+                          (make-string-value (format nil "HELLO WORLD~%")))))
+               (list 40 (make-assign-command
+                         "I"
+                         (make-function-expression
+                          "-"
+                          (list
+                           (make-variable-expression "I")
+                           (make-const-expression (make-number-value 1))))))
+               (list 50 (make-goto-command 20))
+               (list 60 (make-print-command (make-const-expression (make-string-value "YES"))))
+               (list nil (make-run-command)))))
+
+(defun demo05 ()
+  (run-inputs (make-state nil (make-hash-table))
+              (list
+               (list 10 (make-assign-command
+                         "X"
+                         (make-const-expression (make-number-value 10))))
+               (list 20 (make-assign-command
+                         "Y"
+                         (make-function-expression
+                          "-"
+                          (list
+                           (make-variable-expression "X")
+                           (make-const-expression (make-number-value 10))))))
+               (list 30 (make-assign-command
+                         "X"
+                         (make-const-expression (make-number-value 20))))
+               (list 40 (make-print-command (make-variable-expression "Y")))
+               (list nil (make-run-command)))))
