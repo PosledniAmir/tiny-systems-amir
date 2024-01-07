@@ -78,6 +78,14 @@
                         (command nil))
   (:documentation "Represents if command."))
 
+(defunclass clear-command ()
+  (:documentation "Represents clear command."))
+
+(defunclass poke-command ((x nil)
+                          (y nil)
+                          (e nil))
+  (:documentation "Represents poke command."))
+
 (defunclass state ((program nil)
                    (context (make-hash-table)))
   (:documentation "Represents state of the program."))
@@ -158,24 +166,28 @@
 (defmethod eval-expression ((expr const-expression) state)
   (get-value expr))
 
+(defun or-fn (&rest args)
+  (some #'identity args))
+
 (defmethod eval-expression ((expr function-expression) state)
   (let ((name (get-name expr))
-        (arguments (get-arguments expr)))
+        (arguments (mapcar (lambda (x) (eval-expression x state))
+                           (get-arguments expr))))
     (cond
       ((string= name "-")
-       (make-number-value
-        (apply #'-
-               (mapcar
-                (lambda (x)
-                  (get-value (eval-expression x state)))
-                arguments))))
+       (binary-numeric-lift #'- arguments))
       ((string= name "=")
-       (make-boolean-value
-        (apply #'equal
-               (mapcar
-                (lambda (x)
-                  (get-value (eval-expression x state)))
-                arguments)))))))
+       (binary-boolean-lift #'= arguments))
+      ((string= name "RND")
+       (make-number-value
+        (random
+         (get-value (eval-expression (first arguments) state)))))
+      ((string= name ">")
+       (binary-relation-lift #'> arguments))
+      ((string= name "<")
+       (binary-relation-lift #'< arguments))
+      ((string= name "||")
+       (binary-boolean-lift #'or-fn arguments)))))
 
 (defmethod eval-expression ((expr variable-expression) state)
   (let ((context (get-context state)))
@@ -233,6 +245,48 @@
   (reduce (lambda (s cmd) (run-input s (first cmd) (second cmd)))
           lst
           :initial-value state))
+
+(defun binary-relation-lift (fn arguments)
+  (let ((a (get-value (first arguments)))
+        (b (get-value (second arguments))))
+    (make-boolean-value (funcall fn a b))))
+
+(defun binary-numeric-lift (fn arguments)
+  (let ((a (get-value (first  arguments)))
+        (b (get-value (second arguments))))
+    (make-number-value (funcall fn a b))))
+
+(defun binary-boolean-lift (fn arguments)
+  (let ((a (get-value (first arguments)))
+        (b (get-value (second arguments))))
+    (make-boolean-value (funcall fn a b))))
+
+(defun .num (value)
+  (make-const-expression (make-number-value value)))
+
+(defun .str (value)
+  (make-const-expression (make-string-value value)))
+
+(defun .var (name)
+  (make-variable-expression name))
+
+(defun .|| (a b)
+  (make-function-expression "||" (list a b)))
+
+(defun .< (a b)
+  (make-function-expression "<" (list a b)))
+
+(defun .> (a b)
+  (make-function-expression ">" (list a b)))
+
+(defun .- (a b)
+  (make-function-expression "-" (list a b)))
+
+(defun .= (a b)
+  (make-function-expression "=" (list a b)))
+
+(defun .@ (name &rest args)
+  (make-function-expression name args))
 
 (defun demo00 ()
   (run-command
@@ -334,4 +388,23 @@
                          "X"
                          (make-const-expression (make-number-value 20))))
                (list 40 (make-print-command (make-variable-expression "Y")))
+               (list nil (make-run-command)))))
+
+(defun demo06 ()
+  (run-inputs (make-state nil (make-hash-table))
+              (list
+               (list 10 (make-clear-command))
+               (list 20 (make-poke-command
+                         (.@ "RND" (.num 60))
+                         (.@ "RND" (.num 20))
+                         (.str "*")))
+               (list 30 (make-assign-command "I" (.num 100)))
+               (list 40 (make-poke-command
+                         (.@ "RND" (.num 60))
+                         (.@ "RND" (.num 20))
+                         (.str " ")))
+               (list 50 (make-assign-command "I" (.- (.var "I") (.num 1))))
+               (list 60 (make-if-command (.> (.var "I") (.num 1))
+                                         (make-goto-command 40)))
+               (list 100 (make-goto-command 20))
                (list nil (make-run-command)))))
