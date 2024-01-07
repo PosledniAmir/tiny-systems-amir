@@ -145,8 +145,8 @@
 (defmethod solve-aux (a (b variable-type) lst)
   (solve-aux b a lst))
 
-(defmethod solve-aux ((a variable-type) (b variable-type) lst)
-  (solve lst))
+;; (defmethod solve-aux ((a variable-type) (b variable-type) lst)
+;;   (solve lst))
 
 (defmethod solve-aux ((a variable-type) b lst)
   (let ((name (get-name a)))
@@ -326,7 +326,6 @@
 
 (defmethod generate (context (expression variable-expression))
   (let ((name (get-name expression)))
-    (format t "generate variable: ~a~%" name)
     (values (obtain name context) nil)))
 
 (defmethod generate (context (expression if-expression))
@@ -359,28 +358,22 @@
                          (second second)))))
 
 (defmethod generate (context (expression lambda-expression))
-  (format t "lambda: ~a~%" (get-name expression))
   (let* ((name (get-name expression))
          (var (new-variable-type))
          (ctx  (put name var context))
          (tc (multiple-value-list (generate ctx (get-first expression)))))
     (values (make-function-type var (first tc))
-            (concatenate 'list
-                         (second tc)))))
+            (second tc))))
 
 (defmethod generate (context (expression application-expression))
-  (format t "application ~%")
   (let ((var (new-variable-type))
         (first (multiple-value-list (generate context (get-first expression))))
         (second (multiple-value-list (generate context (get-second expression)))))
-    (format t "context: ~a~%" (get-context context))
-    (format t "first: ~a~%" first)
-    (format t "second: ~a~%" second)
-    (values (first second)
+    (values var
             (concatenate 'list
                          (second first)
                          (second second)
-                         (list (make-function-type var (first second))
+                         (list (make-function-type (first second) var)
                                (first first))))))
 
 (defun infer (expression)
@@ -455,4 +448,10 @@
                                                           (make-application-expression
                                                            (make-variable-expression "f")
                                                            (make-variable-expression "x")))))))
+
+(defun demo10 ()
+  (infer (make-lambda-expression "f"
+                                 (make-application-expression
+                                  (make-variable-expression "f")
+                                  (make-variable-expression "f")))))
 
