@@ -92,7 +92,7 @@
   (:documentation "Represents state of the program."))
 
 (defun default-screen ()
-  (make-array '(60 20) :initial-element #\Space))
+  (make-array '(60 20) :initial-element " "))
 
 (defun poke-screen (state x y c)
   (let ((scr (get-screen state)))
@@ -103,6 +103,20 @@
   (let ((p (get-program state))
         (c (get-context state)))
     (make-state p c (default-screen))))
+
+(defun print-array (arr)
+  (let ((rows (array-dimension arr 0))
+        (cols (array-dimension arr 1)))
+    (loop for i from 0 below rows do
+          (let ((row-string ""))
+            (loop for j from 0 below cols do
+                  (setf row-string (concatenate 'string row-string (aref arr i j))))
+            (format t "~A~%" row-string))))) 
+
+
+(defun print-screen (state)
+  (print-array (get-screen state))
+  state)
 
 (defun put (key val collection)
   (setf (gethash key collection) val)
@@ -195,7 +209,7 @@
       ((string= name "RND")
        (make-number-value
         (random
-         (get-value (eval-expression (first arguments) state)))))
+         (get-value (first arguments)))))
       ((string= name ">")
        (binary-relation-lift #'> arguments))
       ((string= name "<")
@@ -241,6 +255,15 @@
     (cond
       ((equal check T) (run-command state line cmd))
       (t (run-next-line state line)))))
+
+(defmethod run-command (state line (command clear-command))
+  (run-next-line (print-screen (clear-screen state)) line))
+
+(defmethod run-command (state line (command poke-command))
+  (let ((x (get-value (eval-expression (get-x command) state)))
+        (y (get-value (eval-expression (get-y command) state)))
+        (e (get-value (eval-expression (get-e command) state))))
+    (run-next-line (print-screen (poke-screen state x y e)) line)))
 
 (defun run-next-line (state line)
   (let ((result (find-if (lambda (item) (> (first item) line))
