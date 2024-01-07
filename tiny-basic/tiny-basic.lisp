@@ -87,8 +87,22 @@
   (:documentation "Represents poke command."))
 
 (defunclass state ((program nil)
-                   (context (make-hash-table)))
+                   (context (make-hash-table))
+                   (screen (default-screen)))
   (:documentation "Represents state of the program."))
+
+(defun default-screen ()
+  (make-array '(60 20) :initial-element #\Space))
+
+(defun poke-screen (state x y c)
+  (let ((scr (get-screen state)))
+    (setf (aref scr x y) c)
+    state))
+
+(defun clear-screen (state)
+  (let ((p (get-program state))
+        (c (get-context state)))
+    (make-state p c (default-screen))))
 
 (defun put (key val collection)
   (setf (gethash key collection) val)
@@ -217,7 +231,8 @@
      (make-state (get-program state)
                  (put name
                       (make-const-expression (eval-expression expr state))
-                      (get-context state)))
+                      (get-context state))
+                 (default-screen))
      line)))
 
 (defmethod run-command (state line (command if-command))
@@ -239,7 +254,9 @@
     ((null line) (run-command state
                               (max-program-line (get-program state))
                               command))
-    (t (make-state (add-program-line (get-program state) line command) (get-context state)))))
+    (t (make-state (add-program-line (get-program state) line command)
+                   (get-context state)
+                   (default-screen)))))
 
 (defun run-inputs (state lst)
   (reduce (lambda (s cmd) (run-input s (first cmd) (second cmd)))
@@ -294,7 +311,8 @@
                 (list 10 (make-print-command
                           (make-const-expression
                            (make-string-value (format nil "HELLO WORLD~%"))))))
-               (make-hash-table))
+               (make-hash-table)
+               (default-screen))
    -1
    (make-run-command)))
 
@@ -305,12 +323,13 @@
                           (make-const-expression
                            (make-string-value (format nil "HELLO WORLD~%")))))
                 (list 20 (make-goto-command 10)))
-               (make-hash-table))
+               (make-hash-table)
+               (default-screen))
    -1
    (make-run-command)))
 
 (defun demo02 ()
-  (run-inputs (make-state nil (make-hash-table))
+  (run-inputs (make-state nil (make-hash-table) (default-screen))
               (list
                (list 10 (make-print-command
                          (make-const-expression
@@ -321,7 +340,7 @@
                (list nil (make-run-command)))))
 
 (defun demo03 ()
-  (run-inputs (make-state nil (make-hash-table))
+  (run-inputs (make-state nil (make-hash-table) (default-screen))
               (list
                (list 10
                      (make-assign-command "S"
@@ -343,7 +362,7 @@
                (list nil (make-run-command)))))
 
 (defun demo04 ()
-  (run-inputs (make-state nil (make-hash-table))
+  (run-inputs (make-state nil (make-hash-table) (default-screen))
               (list
                (list 10 (make-assign-command
                          "I"
@@ -372,7 +391,7 @@
                (list nil (make-run-command)))))
 
 (defun demo05 ()
-  (run-inputs (make-state nil (make-hash-table))
+  (run-inputs (make-state nil (make-hash-table) (default-screen))
               (list
                (list 10 (make-assign-command
                          "X"
@@ -391,7 +410,7 @@
                (list nil (make-run-command)))))
 
 (defun demo06 ()
-  (run-inputs (make-state nil (make-hash-table))
+  (run-inputs (make-state nil (make-hash-table) (default-screen))
               (list
                (list 10 (make-clear-command))
                (list 20 (make-poke-command
