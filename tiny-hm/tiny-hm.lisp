@@ -145,9 +145,6 @@
 (defmethod solve-aux (a (b variable-type) lst)
   (solve-aux b a lst))
 
-;; (defmethod solve-aux ((a variable-type) (b variable-type) lst)
-;;   (solve lst))
-
 (defmethod solve-aux ((a variable-type) b lst)
   (let ((name (get-name a)))
     (cond

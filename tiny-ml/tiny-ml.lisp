@@ -237,20 +237,21 @@
   (make-tuple-value (evaluate context (get-left exp))
                     (evaluate context (get-right exp))))
 
-(format t "test00: ~a~%"
-        (get-value
-         (evaluate (empty-context)
-                   (make-binary-expression
-                    "+"
-                    (make-binary-expression "*"
-                                            (make-constant-expression 1)
-                                            (make-constant-expression 2))
-                    (make-binary-expression "*"
-                                            (make-constant-expression 20)
-                                            (make-constant-expression 2))))))
+(defun demo00 ()
+  (format t "demo00: ~a~%"
+          (get-value
+           (evaluate (empty-context)
+                     (make-binary-expression
+                      "+"
+                      (make-binary-expression "*"
+                                              (make-constant-expression 1)
+                                              (make-constant-expression 2))
+                      (make-binary-expression "*"
+                                              (make-constant-expression 20)
+                                              (make-constant-expression 2)))))))
 
-(defun test01 (context)
-  (format t "test01: ~a~%"
+(defun help00 (zifra context)
+  (format t "demo0~a: ~a~%" zifra
           (get-value
            (evaluate context
                      (make-binary-expression
@@ -260,160 +261,176 @@
                                               (make-variable-expression "x")
                                               (make-constant-expression 20)))))))
 
-(test01 (variable-context-from-list (list "x" (make-integer-value 4))))
-(test01 (variable-context-from-list (list "x" (make-integer-value 2))))
+(defun demo01 ()
+  (help00 1 (variable-context-from-list (list "x" (make-integer-value 4)))))
 
-(format t "test02: ~a~%"
-        (get-value
-         (evaluate (empty-context)
-                   (make-binary-expression
-                    "+"
-                    (make-binary-expression "*"
-                                            (make-constant-expression 1)
-                                            (make-constant-expression 2))
-                    (make-unary-expression
-                     "-"
-                     (make-binary-expression "*"
-                                             (make-constant-expression -20)
-                                             (make-constant-expression 2)))))))
+(defun demo02 ()
+  (help00 2 (variable-context-from-list (list "x" (make-integer-value 2)))))
 
-(format t "test03: ~a~%"
-        (get-value
-         (evaluate (empty-context)
-                   (make-if-expression
-                    (make-binary-expression "+"
-                                            (make-constant-expression 5)
-                                            (make-unary-expression "-"
-                                             (make-constant-expression 4)))
-                    (make-binary-expression "*"
-                                            (make-constant-expression 21)
-                                            (make-constant-expression 2))
-                    (make-constant-expression 0)))))
+(defun demo03 ()
+  (format t "demo03: ~a~%"
+          (get-value
+           (evaluate (empty-context)
+                     (make-binary-expression
+                      "+"
+                      (make-binary-expression "*"
+                                              (make-constant-expression 1)
+                                              (make-constant-expression 2))
+                      (make-unary-expression
+                       "-"
+                       (make-binary-expression "*"
+                                               (make-constant-expression -20)
+                                               (make-constant-expression 2))))))))
 
-(format t "test04: ~a~%"
-        (get-value
-         (evaluate (empty-context)
-                   (make-if-expression
-                    (make-binary-expression "+"
-                                            (make-constant-expression 5)
-                                            (make-constant-expression 4))
-                    (make-constant-expression 0)
-                    (make-binary-expression "*"
-                                            (make-constant-expression 21)
-                                            (make-constant-expression 2))))))
+(defun demo04 ()
+  (format t "demo04: ~a~%"
+          (get-value
+           (evaluate (empty-context)
+                     (make-if-expression
+                      (make-binary-expression "+"
+                                              (make-constant-expression 5)
+                                              (make-unary-expression "-"
+                                                                     (make-constant-expression 4)))
+                      (make-binary-expression "*"
+                                              (make-constant-expression 21)
+                                              (make-constant-expression 2))
+                      (make-constant-expression 0))))))
 
-(format t "test05: ~a~%"
-        (evaluate
-         (empty-context)
-         (make-lambda-expression
-          (make-variable-expression "x")
-          (make-binary-expression "*"
-                                  (make-variable-expression "x")
-                                  (make-constant-expression 2)))))
+(defun demo05 ()
+  (format t "demo05: ~a~%"
+          (get-value
+           (evaluate (empty-context)
+                     (make-if-expression
+                      (make-binary-expression "+"
+                                              (make-constant-expression 5)
+                                              (make-constant-expression 4))
+                      (make-constant-expression 0)
+                      (make-binary-expression "*"
+                                              (make-constant-expression 21)
+                                              (make-constant-expression 2)))))))
 
-(format t "test06: ~a~%"
-        (get-value
-         (evaluate
-          (empty-context)
-          (make-application-expression
+(defun demo06 ()
+  (format t "demo06: ~a~%"
+          (evaluate
+           (empty-context)
            (make-lambda-expression
-            "x"
+            (make-variable-expression "x")
             (make-binary-expression "*"
                                     (make-variable-expression "x")
-                                    (make-constant-expression 2)))
-           (make-constant-expression 21)))))
+                                    (make-constant-expression 2))))))
 
- ;; (format t "test07: ~a~%"
- ;;         (get-value
- ;;          (evaluate
- ;;           (empty-context)
- ;;           (make-application-expression
- ;;            (make-constant-expression 21)
- ;;            (make-lambda-expression
- ;;             "x"
- ;;             (make-binary-expression
- ;;              "*"
- ;;              (make-variable-expression "x")
- ;;              (make-constant-expression 2)))))))
+(defun demo07 ()
+  (format t "demo07: ~a~%"
+          (get-value
+           (evaluate
+            (empty-context)
+            (make-application-expression
+             (make-lambda-expression
+              "x"
+              (make-binary-expression "*"
+                                      (make-variable-expression "x")
+                                      (make-constant-expression 2)))
+             (make-constant-expression 21))))))
 
-;; (format t "test08: ~a~%"
-;;         (get-value
-;;          (evaluate
-;;           (empty-context)
-;;           (make-binary-expression
-;;            "+"
-;;            (make-constant-expression 21)
-;;            (make-lambda-expression
-;;             "x"
-;;             (make-binary-expression
-;;              "*"
-;;              (make-variable-expression "x")
-;;              (make-constant-expression 2)))))))
+(defun demo08 ()
+  (format t "demo08: ~a~%"
+          (get-value
+           (evaluate
+            (empty-context)
+            (make-application-expression
+             (make-constant-expression 21)
+             (make-lambda-expression
+              "x"
+              (make-binary-expression
+               "*"
+               (make-variable-expression "x")
+               (make-constant-expression 2))))))))
 
-(format t "test09: ~a~%"
-        (get-value
-         (evaluate
-          (empty-context)
-          (make-let-expression "x"
-                               (make-constant-expression 2)
-                               (make-binary-expression
-                                "+"
-                                (make-variable-expression "x")
-                                (make-binary-expression
-                                 "*"
-                                 (make-variable-expression "x")
-                                 (make-constant-expression 20)))))))
-
-(format t "test10: ~a~%"
-        (get-value
-         (evaluate
-          (empty-context)
-          (make-let-expression "f"
-                               (make-lambda-expression
-                                "x"
-                                (make-binary-expression
-                                 "*"
-                                 (make-variable-expression "x")
-                                 (make-constant-expression 2)))
-                               (make-binary-expression
-                                "+"
-                                (make-application-expression
-                                 (make-variable-expression "f")
-                                 (make-constant-expression 20))
-                                (make-application-expression
-                                 (make-variable-expression "f")
-                                 (make-constant-expression 1)))))))
-
-(format t "test11: ~a~%"
-        (get-value
-         (evaluate
-          (empty-context)
-          (make-get-tuple-expression
-           t
-           (make-tuple-expression
+(defun demo09 ()
+  (format t "demo09: ~a~%"
+          (get-value
+           (evaluate
+            (empty-context)
             (make-binary-expression
-             "*"
-             (make-constant-expression 2)
-             (make-constant-expression 21))
-            (make-constant-expression 123))))))
+             "+"
+             (make-constant-expression 21)
+             (make-lambda-expression
+              "x"
+              (make-binary-expression
+               "*"
+               (make-variable-expression "x")
+               (make-constant-expression 2))))))))
 
-(format t "test12: ~a~%"
-        (get-value
-         (evaluate
-          (empty-context)
-          (make-get-tuple-expression
-           nil
-           (make-tuple-expression
-            (make-binary-expression
-             "*"
+(defun demo10 ()
+  (format t "demo10: ~a~%"
+          (get-value
+           (evaluate
+            (empty-context)
+            (make-let-expression
+             "x"
              (make-constant-expression 2)
-             (make-constant-expression 21))
-            (make-constant-expression 123))))))
+             (make-binary-expression
+              "+"
+              (make-variable-expression "x")
+              (make-binary-expression
+               "*"
+               (make-variable-expression "x")
+               (make-constant-expression 20))))))))
 
-;; (format t "test13: ~a~%"
-;;         (get-value
-;;          (evaluate
-;;           (empty-context)
-;;           (make-get-tuple-expression
-;;            t
-;;            (make-constant-expression 42)))))
+(defun demo11 ()
+  (format t "demo11: ~a~%"
+          (get-value
+           (evaluate
+            (empty-context)
+            (make-let-expression "f"
+                                 (make-lambda-expression
+                                  "x"
+                                  (make-binary-expression
+                                   "*"
+                                   (make-variable-expression "x")
+                                   (make-constant-expression 2)))
+                                 (make-binary-expression
+                                  "+"
+                                  (make-application-expression
+                                   (make-variable-expression "f")
+                                   (make-constant-expression 20))
+                                  (make-application-expression
+                                   (make-variable-expression "f")
+                                   (make-constant-expression 1))))))))
+
+(defun demo12 ()
+  (format t "test12: ~a~%"
+          (get-value
+           (evaluate
+            (empty-context)
+            (make-get-tuple-expression
+             t
+             (make-tuple-expression
+              (make-binary-expression
+               "*"
+               (make-constant-expression 2)
+               (make-constant-expression 21))
+              (make-constant-expression 123)))))))
+
+(defun demo13 ()
+  (format t "demo13: ~a~%"
+          (get-value
+           (evaluate
+            (empty-context)
+            (make-get-tuple-expression
+             nil
+             (make-tuple-expression
+              (make-binary-expression
+               "*"
+               (make-constant-expression 2)
+               (make-constant-expression 21))
+              (make-constant-expression 123)))))))
+
+(defun demo14 ()
+  (format t "demo14: ~a~%"
+          (get-value
+           (evaluate
+            (empty-context)
+            (make-get-tuple-expression
+             t
+             (make-constant-expression 42))))))
