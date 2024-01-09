@@ -216,6 +216,9 @@
        (make-number-value
         (random
          (get-value (first arguments)))))
+      ((string= name "MIN")
+       (make-number-value (min (get-value (first arguments))
+                               (get-value (second arguments)))))
       ((string= name ">")
        (binary-relation-lift #'> arguments))
       ((string= name "<")
@@ -510,7 +513,7 @@
                                (.str " MATCHES LEFT")
                                (.str (format nil "~%")))))
                (list 100 (make-print-command
-                          (list (.str "PLAYER 2: YOU CAN TAKE BETWEEN 1 AND")
+                          (list (.str "PLAYER 2: YOU CAN TAKE BETWEEN 1 AND ")
                                 (.@ "MIN" (.num 5) (.var "M"))
                                 (.str " MATCHES")
                                 (.str (format nil "~%")))))
