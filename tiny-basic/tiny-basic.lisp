@@ -61,7 +61,7 @@
 (defunclass variable-expression ((name ""))
   (:documentation "Represents variable expression."))
 
-(defunclass print-command ((expression nil))
+(defunclass print-command ((expressions nil))
   (:documentation "Represents print command."))
 
 (defunclass run-command ()
@@ -85,6 +85,12 @@
                           (y nil)
                           (e nil))
   (:documentation "Represents poke command."))
+
+(defunclass input-command ((value nil))
+  (:documentation "Represents input command."))
+
+(defunclass stop-command ()
+  (:documentation "Represents stop command."))
 
 (defunclass state ((program nil)
                    (context (make-hash-table))
@@ -227,8 +233,10 @@
   (:documentation "Runs command on line with state."))
 
 (defmethod run-command (state line (command print-command))
-  (-> command #'get-expression (eval-expression _ state) #'print-value)
-  (run-next-line state line))
+  (let ((exprs (mapcar (lambda (x) (eval-expression x state)) (get-expressions command))))
+    (dolist (item exprs)
+      (print-value item))
+    (run-next-line state line)))
 
 (defmethod run-command (state line (command run-command))
   (let ((fst-line (first (get-program state))))
@@ -264,6 +272,19 @@
         (y (get-value (eval-expression (get-y command) state)))
         (e (get-value (eval-expression (get-e command) state))))
     (run-next-line (print-screen (poke-screen state x y e)) line)))
+
+(defmethod run-command (state line (command stop-command))
+  state)
+
+(defmethod run-command (state line (command input-command))
+  (let ((value (get-value command)))
+    (run-next-line
+     (make-state (get-program state)
+                 (put value
+                      (make-const-expression (make-number-value (read)))
+                      (get-context state))
+                 (get-screen state))
+     line)))
 
 (defun run-next-line (state line)
   (let ((result (find-if (lambda (item) (> (first item) line))
@@ -332,8 +353,9 @@
   (run-command
    (make-state (list
                 (list 10 (make-print-command
-                          (make-const-expression
-                           (make-string-value (format nil "HELLO WORLD~%"))))))
+                          (list
+                           (make-const-expression
+                            (make-string-value (format nil "HELLO WORLD~%")))))))
                (make-hash-table)
                (default-screen))
    -1
@@ -343,8 +365,9 @@
   (run-command
    (make-state (list
                 (list 10 (make-print-command
-                          (make-const-expression
-                           (make-string-value (format nil "HELLO WORLD~%")))))
+                          (list
+                           (make-const-expression
+                            (make-string-value (format nil "HELLO WORLD~%"))))))
                 (list 20 (make-goto-command 10)))
                (make-hash-table)
                (default-screen))
@@ -355,11 +378,13 @@
   (run-inputs (make-state nil (make-hash-table) (default-screen))
               (list
                (list 10 (make-print-command
-                         (make-const-expression
-                          (make-string-value (format nil "HELLO WORLD~%")))))
+                         (list
+                          (make-const-expression
+                           (make-string-value (format nil "HELLO WORLD~%"))))))
                (list 10 (make-print-command
-                         (make-const-expression
-                          (make-string-value (format nil "HELLO NPRG077~%")))))
+                         (list
+                          (make-const-expression
+                           (make-string-value (format nil "HELLO NPRG077~%"))))))
                (list nil (make-run-command)))))
 
 (defun demo03 ()
@@ -379,9 +404,9 @@
                                                (make-variable-expression "I")
                                                (make-const-expression
                                                 (make-number-value 1))))))
-               (list 40 (make-print-command (make-variable-expression "S")))
-               (list 50 (make-print-command (make-variable-expression "I")))
-               (list 60 (make-print-command (make-variable-expression "B")))
+               (list 40 (make-print-command (list (make-variable-expression "S"))))
+               (list 50 (make-print-command (list (make-variable-expression "I"))))
+               (list 60 (make-print-command (list (make-variable-expression "B"))))
                (list nil (make-run-command)))))
 
 (defun demo04 ()
@@ -400,8 +425,9 @@
                             (make-number-value 1))))
                          (make-goto-command 60)))
                (list 30 (make-print-command
-                         (make-const-expression
-                          (make-string-value (format nil "HELLO WORLD~%")))))
+                         (list
+                          (make-const-expression
+                           (make-string-value (format nil "HELLO WORLD~%"))))))
                (list 40 (make-assign-command
                          "I"
                          (make-function-expression
@@ -410,7 +436,7 @@
                            (make-variable-expression "I")
                            (make-const-expression (make-number-value 1))))))
                (list 50 (make-goto-command 20))
-               (list 60 (make-print-command (make-const-expression (make-string-value "YES"))))
+               (list 60 (make-print-command (list (make-const-expression (make-string-value "YES")))))
                (list nil (make-run-command)))))
 
 (defun demo05 ()
@@ -429,7 +455,7 @@
                (list 30 (make-assign-command
                          "X"
                          (make-const-expression (make-number-value 20))))
-               (list 40 (make-print-command (make-variable-expression "Y")))
+               (list 40 (make-print-command (list (make-variable-expression "Y"))))
                (list nil (make-run-command)))))
 
 (defun demo06 ()
@@ -448,4 +474,63 @@
                (list 50 (make-assign-command "I" (.- (.var "I") (.num 1))))
                (list 60 (make-if-command (.> (.var "I") (.num 1))
                                          (make-goto-command 40)))
+               (list nil (make-run-command)))))
+
+(defun demo07 ()
+  (run-inputs (make-state nil (make-hash-table) (default-screen))
+              (list
+               (list 10 (make-assign-command "M" (.num 20)))
+               (list 20 (make-print-command
+                         (list (.str "THERE ARE ")
+                               (.var "M")
+                               (.str " MATCHES LEFT")
+                               (.str (format nil "~%")))))
+               (list 30 (make-print-command
+                         (list (.str "PLAYER 1: YOU CAN TAKE BETWEEN 1 AND ")
+                               (.@ "MIN" (.num 5) (.var "M"))
+                               (.str " MATCHES")
+                               (.str (format nil "~%")))))
+               (list 40 (make-print-command
+                         (list (.str "HOW MANY MATCHES DO YOU TAKE?")
+                               (.str (format nil "~%")))))
+               (list 50 (make-input-command "P"))
+               (list 60 (make-if-command
+                         (.||
+                           (.||
+                             (.< (.var "P") (.num 1))
+                             (.> (.var "P") (.num 5)))
+                           (.> (.var "P") (.var "M")))
+                         (make-goto-command 40)))
+               (list 70 (make-assign-command "M" (.- (.var "M") (.var "P"))))
+               (list 80 (make-if-command (.= (.var "M") (.num 0))
+                                         (make-goto-command 200)))
+               (list 90 (make-print-command
+                         (list (.str "THERE ARE ")
+                               (.var "M")
+                               (.str " MATCHES LEFT")
+                               (.str (format nil "~%")))))
+               (list 100 (make-print-command
+                          (list (.str "PLAYER 2: YOU CAN TAKE BETWEEN 1 AND")
+                                (.@ "MIN" (.num 5) (.var "M"))
+                                (.str " MATCHES")
+                                (.str (format nil "~%")))))
+               (list 110 (make-print-command
+                          (list (.str "HOW MANY MATCHES DO YOU TAKE?")
+                                (.str (format nil "~%")))))
+               (list 120 (make-input-command "P"))
+               (list 130 (make-if-command
+                          (.||
+                            (.||
+                              (.< (.var "P") (.num 1))
+                              (.> (.var "P") (.num 5)))
+                            (.> (.var "P") (.var "M")))
+                          (make-goto-command 110)))
+               (list 140 (make-assign-command "M" (.- (.var "M") (.var "P"))))
+               (list 150 (make-if-command (.= (.var "M") (.num 0))
+                                          (make-goto-command 220)))
+               (list 160 (make-goto-command 20))
+               (list 200 (make-print-command (list (.str "PLAYER 1 WINS!"))))
+               (list 210 (make-stop-command))
+               (list 220 (make-print-command (list (.str "PLAYER 2 WINS!"))))
+               (list 230 (make-stop-command))
                (list nil (make-run-command)))))
