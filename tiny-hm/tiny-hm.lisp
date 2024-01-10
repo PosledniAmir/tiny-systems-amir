@@ -529,3 +529,12 @@
 (defun demo14 ()
   (infer (make-tuple-get-expression nil *etup*)))
 
+(defun demo15 ()
+  (infer (make-lambda-expression
+          "x" (make-tuple-expression
+               (make-tuple-get-expression
+                t (make-variable-expression "x"))
+               (make-tuple-get-expression
+                t (make-tuple-get-expression
+                   nil (make-variable-expression "x")))))))
+
