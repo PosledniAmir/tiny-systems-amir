@@ -57,6 +57,9 @@
 (defunclass function-type ((input nil) (output nil))
   (:documentation "Function type with input and output."))
 
+(defunclass tuple-type ((first nil) (second nil))
+  (:documentation "Tuple type with first and second."))
+
 (defgeneric occurs-check (name number)
   (:documentation "Checks whether variable 'name' is in the 'number'."))
 
@@ -78,6 +81,12 @@
     (or (occurs-check name input)
         (occurs-check name output))))
 
+(defmethod occurs-check (name (type tuple-type))
+  (let ((first (get-first type))
+        (second (get-second type)))
+    (or (occurs-check name first)
+        (occurs-check name second))))
+
 (defgeneric substitute-name (name what number)
   (:documentation "Substitutes variable 'name' by 'what' in 'number'."))
 
@@ -98,6 +107,10 @@
 (defmethod substitute-name (name what (type function-type))
   (make-function-type (substitute-name name what (get-input type))
                       (substitute-name name what (get-output type))))
+
+(defmethod substitute-name (name what (type tuple-type))
+  (make-function-type (substitute-name name what (get-first type))
+                      (substitute-name name what (get-second type))))
 
 (defun substitute-list (name what list)
   (mapcar (lambda (item) (substitute-name name what item)) list))
@@ -167,6 +180,16 @@
                        (cons a-out
                              (cons b-out lst)))))))
 
+(defmethod solve-aux ((a tuple-type) (b tuple-type) lst)
+  (let ((first-a (get-first a))
+        (second-a (get-second a))
+        (first-b (get-first b))
+        (second-b (get-second b)))
+    (solve (cons first-a
+                 (cons first-b
+                       (cons second-a
+                             (cons second-b lst)))))))
+
 (defun solve (constraints)
   (cond
     ((null constraints) nil)
@@ -221,6 +244,12 @@
 
 (defunclass let-expression ((name nil) (first nil) (second nil))
   (:documentation "Let expression with name first and second."))
+
+(defunclass tuple-expression ((first nil) (second nil))
+  (:documentation "Tuple expression with first and second."))
+
+(defunclass tuple-get-expression ((first? t) (tuple nil))
+  (:documentation "TupleGet expression with first? and tuple."))
 
 (defunclass typing-context ((context (make-hash-table)))
   (:documentation "Context with context."))
@@ -373,6 +402,25 @@
                          (list (make-function-type (first second) var)
                                (first first))))))
 
+(defmethod generate (context (expression tuple-expression))
+  (let ((first (multiple-value-list (generate context (get-first expression))))
+        (second (multiple-value-list (generate context (get-second expression)))))
+    (values (make-tuple-type (first first) (first second))
+           (concatenate 'list
+                        (second first)
+                        (second second)))))
+
+(defmethod generate (context (expression tuple-get-expression))
+  (let ((var1 (new-variable-type))
+        (var2 (new-variable-type))
+        (first? (get-first? expression))
+        (tuple (multiple-value-list (generate context (get-tuple expression)))))
+    (values (if first? var1 var2)
+           (concatenate 'list
+                        (second tuple)
+                        (list (make-tuple-type var1 var2)
+                              (first tuple))))))
+
 (defun infer (expression)
   (let* ((tc (multiple-value-list (generate (empty-context) expression)))
          (sub (solve (second tc)))
@@ -465,4 +513,19 @@
                                     "="
                                     (make-constant-expression 2)
                                     (make-constant-expression 3)))))))
+
+(defvar *etup* (make-tuple-expression
+                (make-binary-expression "="
+                                        (make-constant-expression 2)
+                                        (make-constant-expression 21))
+                (make-constant-expression 123)))
+
+(defun demo12 ()
+  (infer *etup*))
+
+(defun demo13 ()
+  (infer (make-tuple-get-expression t *etup*)))
+
+(defun demo14 ()
+  (infer (make-tuple-get-expression nil *etup*)))
 
