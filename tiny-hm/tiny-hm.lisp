@@ -452,3 +452,17 @@
                                   (make-variable-expression "f")
                                   (make-variable-expression "f")))))
 
+(defun demo11 ()
+  (infer (make-lambda-expression "f"
+                                 (make-binary-expression
+                                  "+"
+                                  (make-application-expression
+                                   (make-variable-expression "f")
+                                   (make-constant-expression 1))
+                                  (make-application-expression
+                                   (make-variable-expression "f")
+                                   (make-binary-expression
+                                    "="
+                                    (make-constant-expression 2)
+                                    (make-constant-expression 3)))))))
+
