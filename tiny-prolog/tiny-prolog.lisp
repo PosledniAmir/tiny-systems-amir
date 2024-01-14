@@ -107,17 +107,53 @@
 (defmethod copy ((collection substitution-map))
   (apply #'substitution-map-from-list (to-list collection)))
 
+(defgeneric substitute-aux (subst term)
+  (:documentation "Substitutes subst in term."))
+
+(defmethod substitute-aux (subst (term atom-term))
+  term)
+
+(defmethod substitute-aux (subst (term variable-term))
+  (let ((result (multiple-value-list (obtain (get-name term)
+                                             subst))))
+    (cond
+      ((null (second result)) term)
+      (t (first result)))))
+
+(defmethod substitute-aux (subst (term predicate-term))
+  (let ((result (mapcar (lambda (item)
+                          (substitute-aux subst item))
+                        (get-terms term))))
+    (make-predicate-term (get-name term) result)))
+
+(defun substitute-subst (new subst)
+  (cond
+    ((null subst) nil)
+    (t (cons (substitute-aux new (second subst))
+             (substitute-subst new (rest (rest subst)))))))
+
+(defun substitute-terms (subst terms)
+  (cond
+    ((null terms) nil)
+    (t (cons (substitute-aux subst (first terms))
+             (substitute-terms subst (rest terms))))))
+
 (defun unify-lists (l1 l2)
   (cond
     ((and (null l1) (null l2)) (values nil t))
     ((or (null l1) (null l2)) (values nil nil))
-    (t (let ((rest (multiple-value-list (unify-lists (rest l1) (rest l2))))
-             (first (multiple-value-list (unify (first l1) (first l2)))))
+    (t (let* ((s1 (multiple-value-list (unify (first l1) (first l2))))
+              (map (substitution-map-from-list (first s1)))
+              (t1 (substitute-terms map (rest l1)))
+              (t2 (substitute-terms map (rest l2)))
+              (s2 (multiple-value-list (unify-lists t1 t2)))
+              (new-map (substitution-map-from-list (first s2)))
+              (result (substitute-subst new-map (first s1))))
          (cond
-           ((or (null (second rest))
-                (null (second first)))
+           ((or (null (second s1))
+                (null (second s2)))
             (values nil nil))
-           (t (values (concatenate 'list (first first) (first rest)) t)))))))
+           (t (values (concatenate 'list result (first s2)) t)))))))
 
 (defgeneric unify (t1 t2)
   (:documentation "Unifies two terms if possible."))
@@ -201,3 +237,43 @@
     (unify (.predicate "succ"
                        (.predicate "succ" (.atom "zero")))
            (.predicate "succ" (.atom "zero"))))))
+
+(defun demo06 ()
+  (print-result
+   (multiple-value-list
+    (unify (.predicate "loves" (.atom "narcissus") (.atom "narcissus"))
+           (.predicate "loves" (.variable "X") (.variable "X"))))))
+
+(defun demo07 ()
+  (print-result
+   (multiple-value-list
+    (unify (.predicate "loves" (.atom "odysseus") (.atom "penelope"))
+           (.predicate "loves" (.variable "X") (.variable "X"))))))
+
+(defun demo08 ()
+  (print-result
+   (multiple-value-list
+    (unify (.predicate "add"
+                       (.atom "zero")
+                       (.predicate "succ" (.atom "zero")))
+           (.predicate "add"
+                       (.variable "Y")
+                       (.predicate "succ" (.variable "Y")))))))
+
+(defun demo09 ()
+  (print-result
+   (multiple-value-list
+    (unify (.predicate "loves" (.variable "X") (.atom "narcissus"))
+           (.predicate "loves" (.variable "Y") (.variable "X"))))))
+
+(defun demo10 ()
+  (print-result
+   (multiple-value-list
+    (unify (.predicate "add"
+                       (.predicate "succ"
+                                   (.variable "X"))
+                       (.variable "X"))
+           (.predicate "add"
+                       (.variable "Y")
+                       (.predicate "succ"
+                                   (.variable "Z")))))))
