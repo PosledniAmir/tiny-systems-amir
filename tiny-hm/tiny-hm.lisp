@@ -60,13 +60,13 @@
   (:documentation "List."))
 
 (defmethod print-object ((obj list-type) stream)
-  (format stream "<Type: ~A>" (get-type obj)))
+  (format stream "<List: ~A>" (get-type obj)))
 
 (defunclass function-type ((input nil) (output nil))
   (:documentation "Function type with input and output."))
 
 (defmethod print-object ((obj function-type) stream)
-  (format stream "<Input: ~A, Output: ~A>"
+  (format stream "<Function: ~A -> ~A>"
           (get-input obj)
           (get-output obj)))
 
@@ -74,7 +74,7 @@
   (:documentation "Tuple type with first and second."))
 
 (defmethod print-object ((obj tuple-type) stream)
-  (format stream "<First: ~A, Second: ~A>"
+  (format stream "<Tuple: ~A, ~A>"
           (get-first obj)
           (get-second obj)))
 
