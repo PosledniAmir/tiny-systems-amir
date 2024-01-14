@@ -129,8 +129,9 @@
 (defun substitute-subst (new subst)
   (cond
     ((null subst) nil)
-    (t (cons (substitute-aux new (second subst))
-             (substitute-subst new (rest (rest subst)))))))
+    (t (cons (first subst)
+             (cons (substitute-aux new (second subst))
+                   (substitute-subst new (rest (rest subst))))))))
 
 (defun substitute-terms (subst terms)
   (cond
@@ -197,7 +198,7 @@
 (defun print-result (result)
   (cond
     ((null (second result)) (format t "FAIL"))
-    (t (format t "~A" (first result)))))
+    (t (first result))))
 
 (defun demo00 ()
   (print-result
