@@ -247,6 +247,9 @@
 (defun .rule (head &rest rest)
   (make-clause head rest))
 
+(defun .fact (head)
+  (make-clause head nil))
+
 (defun print-result (result)
   (cond
     ((null (second result)) (format t "FAIL"))
@@ -341,3 +344,23 @@
                                (.predicate "parent"
                                            (.variable "Z")
                                            (.variable "Y")))))
+
+(defvar *family* 
+  (list 
+   (.fact (.predicate "male" (.atom "William")))
+   (.fact (.predicate "female" (.atom "Diana")))
+   (.fact (.predicate "male" (.atom "Charles")))
+   (.fact (.predicate "male" (.atom "George")))
+   (.fact (.predicate "parent" (.atom "Diana") (.atom "William")))
+   (.fact (.predicate "parent" (.atom "Charles") (.atom "William")))
+   (.fact (.predicate "parent" (.atom "William") (.atom "George")))
+   (.rule (.predicate "father" (.variable "X") (.variable "Y"))
+          (.predicate "parent" (.variable "X") (.variable "Y"))
+          (.predicate "male" (.variable "X")))))
+
+(defun demo12 ()
+  (query *family* (.predicate "male" (.variable "X"))))
+
+(defun demo13 ()
+  (query *family* (.predicate "father" (.variable "X") (.atom "William"))))
+
