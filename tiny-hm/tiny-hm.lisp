@@ -1,3 +1,5 @@
+(declaim (optimize (speed 0) (space 0) (debug 3)))
+
 (defmacro defunclass (name slots &optional docstring)
   (let* ((constructor (intern (format nil "MAKE-~A" name)))
          (getter (lambda (slot) (intern (format nil "GET-~A" (first slot)))))
@@ -45,6 +47,9 @@
 (defunclass variable-type ((name nil))
   (:documentation "Variable."))
 
+(defmethod print-object ((obj variable-type) stream)
+  (format stream "<Variable: ~A>" (get-name obj)))
+
 (defunclass bool-type ()
   (:documentation "Bool."))
 
@@ -54,11 +59,24 @@
 (defunclass list-type ((type nil))
   (:documentation "List."))
 
+(defmethod print-object ((obj list-type) stream)
+  (format stream "<Type: ~A>" (get-type obj)))
+
 (defunclass function-type ((input nil) (output nil))
   (:documentation "Function type with input and output."))
 
+(defmethod print-object ((obj function-type) stream)
+  (format stream "<Input: ~A, Output: ~A>"
+          (get-input obj)
+          (get-output obj)))
+
 (defunclass tuple-type ((first nil) (second nil))
   (:documentation "Tuple type with first and second."))
+
+(defmethod print-object ((obj tuple-type) stream)
+  (format stream "<First: ~A, Second: ~A>"
+          (get-first obj)
+          (get-second obj)))
 
 (defgeneric occurs-check (name number)
   (:documentation "Checks whether variable 'name' is in the 'number'."))
@@ -109,7 +127,7 @@
                       (substitute-name name what (get-output type))))
 
 (defmethod substitute-name (name what (type tuple-type))
-  (make-function-type (substitute-name name what (get-first type))
+  (make-tuple-type (substitute-name name what (get-first type))
                       (substitute-name name what (get-second type))))
 
 (defun substitute-list (name what list)
@@ -537,4 +555,18 @@
                (make-tuple-get-expression
                 t (make-tuple-get-expression
                    nil (make-variable-expression "x")))))))
+
+(defun demo16 ()
+  (infer (make-tuple-get-expression
+          t (make-binary-expression
+             "+" (make-constant-expression 1) (make-constant-expression 2)))))
+
+(defun demo17 ()
+  (infer (make-lambda-expression
+          "x" (make-lambda-expression
+               "f" (make-tuple-expression
+                    (make-variable-expression "x")
+                    (make-application-expression
+                     (make-variable-expression "f")
+                     (make-variable-expression "x")))))))
 
