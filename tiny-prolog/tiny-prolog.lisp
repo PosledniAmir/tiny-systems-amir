@@ -51,6 +51,11 @@
 (defunclass clause ((head nil)
                     (rest nil))
   (:documentation "Caluse with head and rest."))
+
+(defmethod print-object ((obj clause) stream)
+  (format stream "<Clause: ~A :- ~A>"
+          (get-head obj)
+          (get-rest obj)))
   
 (defunclass substitution-map ((map (make-hash-table)))
   (:documentation "Hashtable for substitution."))
@@ -186,6 +191,50 @@
 (defmethod unify ((t1 atom-term) (t2 predicate-term))
   (values nil nil))
 
+(defvar *variable-counter* 0)
+(defun new-variable ()
+  (incf *variable-counter*)
+  (format nil "_~D" *variable-counter*))
+
+(defgeneric free-variables (term)
+  (:documentation "Obtains list of variables from term."))
+
+(defmethod free-variables ((term atom-term))
+  nil)
+
+(defmethod free-variables ((term variable-term))
+  (list (get-name term)))
+
+(defmethod free-variables ((term predicate-term))
+  (apply #'concatenate
+         'list
+         (mapcar #'free-variables (get-terms term))))
+
+(defun give-fresh-variables (clause)
+  (let* ((tlist (cons (get-head clause)
+                      (get-rest clause)))
+         (variables (remove-duplicates
+                     (apply #'concatenate
+                            'list
+                            (mapcar #'free-variables tlist))))
+         (renamed (mapcar (lambda (var)
+                            (make-variable-term
+                             (concatenate 'string var (new-variable))))
+                          variables))
+         (subst (mapcar #'list variables renamed))
+         (fresh (substitute-terms (apply #'substitution-map-from-list subst) tlist)))
+    (make-clause (first fresh) (rest fresh))))
+
+(defun query (clauses query)
+  (cond
+    ((null clauses) nil)
+    (t (let* ((fresh (give-fresh-variables (first clauses)))
+             (unif (multiple-value-list (unify (get-head fresh) query))))
+         (cond
+           ((null (second unif)) (query (rest clauses) query))
+           (t (cons (list fresh (first unif))
+                    (query (rest clauses) query))))))))
+
 (defun .predicate (name &rest rest)
   (make-predicate-term name rest))
 
@@ -194,6 +243,9 @@
 
 (defun .variable (name)
   (make-variable-term name))
+
+(defun .rule (head &rest rest)
+  (make-clause head rest))
 
 (defun print-result (result)
   (cond
@@ -278,3 +330,14 @@
                        (.variable "Y")
                        (.predicate "succ"
                                    (.variable "Z")))))))
+
+(defun demo11 ()
+  (give-fresh-variables (.rule (.predicate "grandparent"
+                                           (.variable "X")
+                                           (.variable "Y"))
+                               (.predicate "parent"
+                                           (.variable "X")
+                                           (.variable "Z"))
+                               (.predicate "parent"
+                                           (.variable "Z")
+                                           (.variable "Y")))))
