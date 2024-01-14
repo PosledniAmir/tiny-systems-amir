@@ -51,12 +51,61 @@
 (defunclass clause ((head nil)
                     (rest nil))
   (:documentation "Caluse with head and rest."))
+  
+(defunclass substitution-map ((map (make-hash-table)))
+  (:documentation "Hashtable for substitution."))
 
-(defun fact (head)
-  (make-clause head nil))
+(defun empty-map ()
+  (make-instance 'substitution-map))
 
-(defun rule (head rest)
-  (make-clause head rest))
+(defun substitution-map-from-list (&rest pairs)
+  (reduce (lambda (collection pair)
+            (put! (first pair) (second pair) collection))
+          pairs
+          :initial-value (empty-map)))
+
+(defgeneric put! (key value collection)
+  (:documentation "Puts value under key in collection."))
+
+(defmethod put! (key value (collection substitution-map))
+  (setf (gethash key (get-map collection)) value)
+  collection)
+
+(defgeneric put (key value collection)
+  (:documentation "Puts value under key in collection."))
+
+(defmethod put (key value (collection substitution-map))
+  (let ((item (put! key value (copy collection))))
+    item))
+
+(defgeneric contains? (key collection)
+  (:documentation "Checks whether key is in collection."))
+
+(defmethod contains? (key (collection substitution-map))
+  (multiple-value-bind (value found?) (gethash key (get-map collection))
+    (declare (ignore value))
+    (cond
+      (found? t)
+      (t nil))))
+
+(defgeneric obtain (key collection)
+  (:documentation "Obtains value according to key from collection."))
+
+(defmethod obtain (key (collection substitution-map))
+  (gethash key (get-map collection)))
+
+(defgeneric to-list (collection)
+  (:documentation "Converts collection to list."))
+
+(defmethod to-list ((collection substitution-map))
+  (loop for key being the hash-keys of (get-map collection) using (hash-value value)
+        collect (list key value)))
+
+(defgeneric copy (collection)
+  (:documentation "Copies the collection"))
+
+(defmethod copy ((collection substitution-map))
+  (apply #'substitution-map-from-list (to-list collection)))
 
 (defun unify-lists (l1 l2)
   (cond
