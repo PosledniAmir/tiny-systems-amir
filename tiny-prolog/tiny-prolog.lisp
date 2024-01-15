@@ -235,6 +235,43 @@
            (t (cons (list fresh (first unif))
                     (query (rest clauses) query))))))))
 
+(defun pair-up (list)
+  (cond
+    ((null list) nil)
+    (t (cons (list (first list) (second list))
+             (pair-up (rest (rest list)))))))
+
+(defun solve-aux (clauses subst goals matches)
+  (cond
+    ((null matches) nil)
+    (t (let* ((match (first matches))
+              (clause (first match))
+              (new-goals (concatenate 'list (get-rest clause) goals))
+              (new-subst (second match))
+              (new-map (apply #'substitution-map-from-list (pair-up new-subst)))
+              (subst-goals (substitute-terms new-map new-goals))
+              (fin-subst (substitute-subst new-map subst))
+              )
+         ;; (cons (solve clauses fin-subst subst-goals)
+         ;;       (solve-aux clauses subst goals (rest matches)))
+         (format t "Match: ~A~%" match)
+         (format t "Clause: ~A~%" clause)
+         (format t "New-goals: ~A~%" new-goals)
+         (format t "New-subst: ~A~%" new-subst)
+         (format t "New-map: ~A~%" new-map)
+         (format t "Subst-goals: ~A~%" subst-goals)
+         (format t "Fin-subst: ~A~%" fin-subst)
+         (cons (solve clauses fin-subst subst-goals)
+               (solve-aux clauses subst goals (rest matches)))))))
+
+(defun solve (clauses subst goals)
+  (cond
+    ((null goals) (list subst))
+    (t (let* ((goal (first goals))
+              (rest (rest goals))
+              (matches (query clauses goal)))
+         (solve-aux clauses subst rest matches)))))
+
 (defun .predicate (name &rest rest)
   (make-predicate-term name rest))
 
@@ -363,4 +400,7 @@
 
 (defun demo13 ()
   (query *family* (.predicate "father" (.variable "X") (.atom "William"))))
+
+(defun demo14 ()
+  (solve *family* nil (list (.predicate "father" (.variable "X") (.atom "William")))))
 
