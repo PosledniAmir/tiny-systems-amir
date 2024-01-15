@@ -250,27 +250,73 @@
               (new-subst (second match))
               (new-map (apply #'substitution-map-from-list (pair-up new-subst)))
               (subst-goals (substitute-terms new-map new-goals))
-              (fin-subst (substitute-subst new-map subst))
-              )
-         ;; (cons (solve clauses fin-subst subst-goals)
-         ;;       (solve-aux clauses subst goals (rest matches)))
-         (format t "Match: ~A~%" match)
-         (format t "Clause: ~A~%" clause)
-         (format t "New-goals: ~A~%" new-goals)
-         (format t "New-subst: ~A~%" new-subst)
-         (format t "New-map: ~A~%" new-map)
-         (format t "Subst-goals: ~A~%" subst-goals)
-         (format t "Fin-subst: ~A~%" fin-subst)
+              (fin-subst (concatenate 'list new-subst (substitute-subst new-map subst))))
          (cons (solve clauses fin-subst subst-goals)
                (solve-aux clauses subst goals (rest matches)))))))
 
 (defun solve (clauses subst goals)
   (cond
-    ((null goals) (list subst))
+    ((null goals) (list 'result subst))
     (t (let* ((goal (first goals))
               (rest (rest goals))
               (matches (query clauses goal)))
          (solve-aux clauses subst rest matches)))))
+
+(defun filter-results (list)
+  (cond
+    ((null list) (list))
+    ((eq (first list) 'result) (mapcar #'format-term (second list)))
+    ((null (first list))
+     (filter-results (rest list)))
+    (t (concatenate 'list
+                    (filter-results (first list))
+                    (filter-results (rest list))))))
+
+(defgeneric parse-number? (term)
+  (:documentation "Tries to parse number, returns nil if it is not a number"))
+
+(defmethod parse-number? ((term predicate-term))
+  (cond
+    ((and (string= (get-name term) "succ")
+          (not (null (get-terms term)))
+          (null (rest (get-terms term))))
+     (let ((result (parse-number? (first (get-terms term)))))
+       (cond
+         ((null result) nil)
+         (t (+ 1 result)))))
+    (t nil)))
+
+(defmethod parse-number? ((term atom-term))
+  (cond
+    ((string= (get-name term) "zero") 0)
+    (t nil)))
+
+(defmethod parse-number? ((term variable-term))
+  nil)
+
+(defgeneric format-term (term)
+  (:documentation "Pretty prints the term."))
+
+(defmethod format-term ((term variable-term))
+  (get-name term))
+
+(defmethod format-term ((term atom-term))
+  (let ((result (parse-number? term)))
+    (cond
+      ((null result) (get-name term))
+      (t (format nil "~A" result)))))
+
+(defmethod format-term ((term predicate-term))
+  (let ((result (parse-number? term)))
+    (cond
+      ((null result) (format nil "~A~A" (get-name term) (mapcar #'format-term (get-terms term))))
+      (t (format nil "~A" result)))))
+
+(defmethod format-term ((term string))
+  term)
+
+(defun solve-pretty (clauses subst goals)
+  (pair-up (filter-results (solve clauses subst goals))))
 
 (defun .predicate (name &rest rest)
   (make-predicate-term name rest))
@@ -286,6 +332,11 @@
 
 (defun .fact (head)
   (make-clause head nil))
+
+(defun .num (n)
+  (cond
+    ((> n 0) (.predicate "succ" (.num (- n 1))))
+    (t (.atom "zero"))))
 
 (defun print-result (result)
   (cond
@@ -402,5 +453,30 @@
   (query *family* (.predicate "father" (.variable "X") (.atom "William"))))
 
 (defun demo14 ()
-  (solve *family* nil (list (.predicate "father" (.variable "X") (.atom "William")))))
+  (solve-pretty *family* nil (list (.predicate "father" (.variable "X") (.atom "William")))))
+
+(defun demo15 ()
+  (solve-pretty *family* nil (list (.predicate "father" (.variable "X") (.variable "Y")))))
+
+(defvar *nums*
+  (list
+   (.fact (.predicate "add"
+                      (.atom "zero")
+                      (.variable "X")
+                      (.variable "X")))
+   (.rule (.predicate "add"
+                      (.predicate "succ" (.variable "X"))
+                      (.variable "Y")
+                      (.predicate "succ" (.variable "Z")))
+          (.predicate "add"
+                      (.variable "X")
+                      (.variable "Y")
+                      (.variable "Z")))
+   (.fact (.predicate "eq" (.variable "X") (.variable "X")))))
+
+(defun demo16 ()
+  (solve-pretty *nums* nil (list (.predicate "add" (.num 2) (.num 3) (.variable "X")))))
+
+(defun demo17 ()
+  (solve-pretty *nums* nil (list (.predicate "add" (.num 2) (.variable "Y") (.variable "X")))))
 
